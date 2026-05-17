@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Equity Research Report &mdash; {{ label }}</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; background: #f9fafb; color: #111827; }
+
+    /* Layout */
+    .container { max-width: 960px; margin: 0 auto; padding: 32px 16px; }
+    h2 { font-size: 1.1rem; font-weight: 700; color: #1e40af; margin: 32px 0 16px; text-transform: uppercase; letter-spacing: .05em; }
+
+    /* Page header */
+    .page-header { border-bottom: 2px solid #1e40af; padding-bottom: 20px; margin-bottom: 28px; }
+    .page-header-label { font-size: 0.8rem; color: #6b7280; text-transform: uppercase; letter-spacing: .1em; }
+    .page-title { font-size: 2rem; font-weight: 800; color: #111827; margin: 4px 0; }
+    .ctx-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+    .ctx-tag { background: #e0e7ff; color: #3730a3; padding: 3px 10px; border-radius: 20px; font-size: 0.8rem; }
+
+    /* Cards */
+    .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px; margin-bottom: 20px; background: #fff; box-shadow: 0 1px 3px rgba(0,0,0,.06); }
+    .card-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 16px; }
+    .card-header-right { text-align: right; }
+
+    /* Candidato */
+    .candidato-rank { font-size: 0.8rem; color: #6b7280; font-weight: 600; }
+    .candidato-title { margin: 4px 0; font-size: 1.25rem; color: #111827; }
+    .candidato-ticker { background: #1e40af; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 1rem; margin-right: 8px; }
+    .candidato-meta { font-size: 0.8rem; color: #6b7280; }
+    .candidato-total-score { font-size: 1.5rem; font-weight: 700; color: #1e40af; margin-top: 4px; }
+    .score-max { font-size: 0.8rem; color: #6b7280; }
+    .candidato-tesi { color: #374151; margin: 0 0 16px; line-height: 1.6; }
+    .candidato-catalizzatore { color: #374151; margin: 0 0 16px; }
+
+    /* Scenarios */
+    .scenarios-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .scenario { border-radius: 8px; padding: 12px; }
+    .scenario-bull { background: #f0fdf4; }
+    .scenario-base { background: #eff6ff; }
+    .scenario-bear { background: #fef2f2; }
+    .scenario-label { font-size: 0.7rem; font-weight: 700; margin-bottom: 4px; }
+    .scenario-bull .scenario-label { color: #15803d; }
+    .scenario-base .scenario-label { color: #1d4ed8; }
+    .scenario-bear .scenario-label { color: #dc2626; }
+    .scenario-bull .scenario-text { font-size: 0.85rem; color: #166534; }
+    .scenario-base .scenario-text { font-size: 0.85rem; color: #1e40af; }
+    .scenario-bear .scenario-text { font-size: 0.85rem; color: #991b1b; }
+
+    /* Scoring */
+    .scoring-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .section-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    .scoring-table { width: 100%; }
+    .scoring-td-label { padding: 4px 8px; color: #6b7280; font-size: 0.85rem; }
+    .scoring-td-bar { padding: 4px 8px; width: 160px; }
+    .verifiche-list { margin: 0; padding-left: 16px; }
+    .verifiche-item { margin: 2px 0; font-size: 0.85rem; }
+    .trigger-box { margin-top: 12px; padding: 10px; background: #fefce8; border-radius: 6px; font-size: 0.8rem; }
+
+    /* Score bar */
+    .score-bar { display: flex; align-items: center; gap: 8px; }
+    .score-bar-track { flex: 1; background: #e5e7eb; border-radius: 4px; height: 8px; }
+    .score-bar-fill { height: 8px; border-radius: 4px; }
+    .score-bar-label { font-size: 0.8rem; font-weight: 600; color: #374151; }
+
+    /* Consensus */
+    .consensus-box { margin-top: 16px; padding: 14px; background: #f8fafc; border-radius: 8px; border: 1px solid #e5e7eb; }
+    .consensus-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .consensus-title { font-size: 0.8rem; font-weight: 600; color: #374151; }
+    .consensus-meta { display: flex; align-items: center; gap: 10px; }
+    .consensus-count { font-size: 0.75rem; color: #6b7280; }
+    .consensus-badge { color: #fff; padding: 2px 10px; border-radius: 12px; font-size: 0.75rem; font-weight: 700; }
+    .consensus-bar-row { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+    .consensus-bar-label { width: 80px; font-size: 0.75rem; color: #6b7280; text-align: right; }
+    .consensus-bar-track { flex: 1; background: #e5e7eb; border-radius: 4px; height: 8px; }
+    .consensus-bar-fill { height: 8px; border-radius: 4px; }
+    .consensus-bar-count { font-size: 0.75rem; color: #374151; width: 24px; }
+
+    /* Tema card */
+    .tema-header { display: flex; align-items: flex-start; justify-content: space-between; margin-bottom: 12px; }
+    .tema-id { font-size: 0.75rem; font-weight: 700; color: #6b7280; }
+    .tema-titolo { margin: 4px 0; font-size: 1.1rem; font-weight: 700; color: #1e40af; }
+    .tema-evidenze { display: flex; flex-wrap: wrap; gap: 4px; max-width: 200px; justify-content: flex-end; }
+    .tema-perche { color: #374151; font-size: 0.9rem; line-height: 1.6; margin-bottom: 16px; }
+    .news-badge { background: #dbeafe; color: #1e40af; padding: 1px 7px; border-radius: 10px; font-size: 0.75rem; margin-right: 4px; }
+    .indicatori-section { margin-bottom: 16px; }
+    .indicatori-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 6px; }
+    .indicatori-list { margin: 0; padding-left: 16px; }
+    .indicatori-item { margin: 2px 0; font-size: 0.85rem; color: #374151; }
+    .candidati-collegati-label { font-size: 0.8rem; font-weight: 600; color: #374151; margin-bottom: 8px; }
+    .candidati-collegati-list { display: flex; flex-direction: column; gap: 6px; }
+    .cand-badge-row { display: flex; align-items: center; gap: 8px; padding: 8px 12px; background: #f8fafc; border: 1px solid #e5e7eb; border-radius: 8px; }
+    .cand-badge-ticker { background: #1e40af; color: #fff; padding: 2px 8px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
+    .cand-badge-name { font-size: 0.85rem; color: #374151; flex: 1; }
+    .cand-badge-score { font-size: 0.8rem; font-weight: 700; color: #1e40af; }
+    .cand-badge-score-max { font-weight: 400; color: #9ca3af; }
+    .giudizio-badge { color: #fff; padding: 1px 8px; border-radius: 10px; font-size: 0.75rem; font-weight: 600; }
+
+    /* Rating badge */
+    .rating-badge { color: #fff; padding: 2px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
+
+    /* Violations banner */
+    .violations-banner { background: #fef2f2; border: 2px solid #ef4444; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px; }
+    .violations-banner-title { font-size: 1rem; font-weight: 700; color: #b91c1c; margin-bottom: 10px; }
+    .violations-banner-warning { background: #fffbeb; border-color: #f59e0b; }
+    .violations-banner-warning .violations-banner-title { color: #92400e; }
+    .violation-row { font-size: 0.85rem; color: #7f1d1d; margin-bottom: 4px; }
+    .violation-row-warning { color: #78350f; }
+    .violation-rule { font-family: monospace; background: #fee2e2; padding: 1px 5px; border-radius: 3px; font-size: 0.8rem; }
+    .violation-rule-warning { background: #fde68a; }
+
+    /* Alerts */
+    .alert-error { background: #fef2f2; border: 1px solid #fca5a5; border-radius: 10px; padding: 16px; margin-bottom: 20px; color: #991b1b; font-size: 0.9rem; }
+    .alert-corrections { background: #fefce8; border: 1px solid #fde68a; border-radius: 10px; padding: 14px; margin-bottom: 20px; }
+    .alert-corrections-label { font-size: 0.8rem; font-weight: 700; color: #92400e; margin-bottom: 6px; }
+    .corrections-list { margin: 0; padding-left: 16px; }
+    .correction-item { font-size: 0.8rem; color: #374151; }
+
+    /* Misc */
+    .sintesi-box { background: #fff; border-radius: 12px; padding: 24px; border: 1px solid #e5e7eb; line-height: 1.8; white-space: pre-wrap; }
+    .nota-box { background: #fff; border-radius: 12px; padding: 20px; border: 1px solid #e5e7eb; font-size: 0.9rem; color: #6b7280; line-height: 1.7; }
+    .footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid #e5e7eb; font-size: 0.75rem; color: #9ca3af; text-align: center; }
+  </style>
+</head>
+
+{# ── Macro: score bar ────────────────────────────────────────────────────── #}
+{% macro score_bar(value, max_value=10) %}
+  {% set pct = [((value / max_value) * 100), 100] | min %}
+  {% set color = "#22c55e" if pct >= 70 else ("#f59e0b" if pct >= 40 else "#ef4444") %}
+  <div class="score-bar">
+    <div class="score-bar-track">
+      <div class="score-bar-fill" style="width:{{ pct | int }}%;background:{{ color }}"></div>
+    </div>
+    <span class="score-bar-label">{{ value }}/{{ max_value }}</span>
+  </div>
+{% endmacro %}
+
+{# ── Macro: rating badge ─────────────────────────────────────────────────── #}
+{% macro rating_badge(rating) %}
+  {% set colors = {"alta": "#22c55e", "media": "#f59e0b", "bassa": "#ef4444"} %}
+  {% set color = colors.get(rating.lower(), "#6b7280") %}
+  <span class="rating-badge" style="background:{{ color }}">{{ rating | upper }}</span>
+{% endmacro %}
+
+{# ── Macro: analyst consensus ────────────────────────────────────────────── #}
+{% macro consensus_section(consensus) %}
+  {% set giudizio_colors = {
+    "strong buy": "#15803d", "buy": "#22c55e",
+    "hold": "#f59e0b",
+    "sell": "#ef4444", "strong sell": "#991b1b"
+  } %}
+  {% set gcolor = giudizio_colors.get(consensus.giudizio_sintetico.lower(), "#6b7280") %}
+  {% set total = consensus.totale_analisti if consensus.totale_analisti else 1 %}
+  <div class="consensus-box">
+    <div class="consensus-header">
+      <span class="consensus-title">CONSENSUS ANALISTI</span>
+      <div class="consensus-meta">
+        <span class="consensus-count">{{ consensus.totale_analisti }} analisti &bull; target: {{ consensus.target_medio }}</span>
+        <span class="consensus-badge" style="background:{{ gcolor }}">{{ consensus.giudizio_sintetico }}</span>
+      </div>
+    </div>
+    {% for lbl, key, color in [
+      ("Strong Buy", "strong_buy", "#15803d"),
+      ("Buy",        "buy",        "#22c55e"),
+      ("Hold",       "hold",       "#f59e0b"),
+      ("Sell",       "sell",       "#ef4444"),
+      ("Strong Sell","strong_sell","#991b1b")
+    ] %}
+      {% set count = consensus[key] if consensus[key] else 0 %}
+      {% set pct = [((count / total) * 100), 100] | min %}
+      <div class="consensus-bar-row">
+        <span class="consensus-bar-label">{{ lbl }}</span>
+        <div class="consensus-bar-track">
+          <div class="consensus-bar-fill" style="width:{{ pct | int }}%;background:{{ color }}"></div>
+        </div>
+        <span class="consensus-bar-count">{{ count }}</span>
+      </div>
+    {% endfor %}
+  </div>
+{% endmacro %}
+
+{# ── Macro: candidato card ───────────────────────────────────────────────── #}
+{% macro candidato_card(c) %}
+  <div class="card">
+    <div class="card-header">
+      <div>
+        <span class="candidato-rank">#{{ c.rank }}</span>
+        <h3 class="candidato-title">
+          <span class="candidato-ticker">{{ c.ticker }}</span>{{ c.azienda }}
+        </h3>
+        <span class="candidato-meta">{{ c.mercato }} &bull; Tema: {{ c.tema }} &bull; Orizzonte: {{ c.orizzonte_settimane }}</span>
+      </div>
+      <div class="card-header-right">
+        {{ rating_badge(c.rating_qualita) }}
+        <div class="candidato-total-score">{{ c.scoring.totale }}<span class="score-max">/50</span></div>
+      </div>
+    </div>
+
+    <p class="candidato-tesi"><strong>Tesi:</strong> {{ c.tesi }}</p>
+    <p class="candidato-catalizzatore"><strong>Catalizzatore:</strong> {{ c.catalizzatore }}</p>
+
+    <div class="scenarios-grid">
+      <div class="scenario scenario-bull">
+        <div class="scenario-label">BULL</div>
+        <div class="scenario-text">{{ c.scenari.bull }}</div>
+      </div>
+      <div class="scenario scenario-base">
+        <div class="scenario-label">BASE</div>
+        <div class="scenario-text">{{ c.scenari.base }}</div>
+      </div>
+      <div class="scenario scenario-bear">
+        <div class="scenario-label">BEAR</div>
+        <div class="scenario-text">{{ c.scenari.bear }}</div>
+      </div>
+    </div>
+
+    <div class="scoring-grid">
+      <div>
+        <div class="section-label">SCORING</div>
+        <table class="scoring-table">
+          {% for key, dim_label in scoring_dims %}
+          <tr>
+            <td class="scoring-td-label">{{ dim_label }}</td>
+            <td class="scoring-td-bar">{{ score_bar(c.scoring[key]) }}</td>
+          </tr>
+          {% endfor %}
+        </table>
+      </div>
+      <div>
+        <div class="section-label">PROSSIME VERIFICHE</div>
+        <ul class="verifiche-list">
+          {% for v in c.prossime_verifiche %}
+          <li class="verifiche-item">{{ v }}</li>
+          {% endfor %}
+        </ul>
+        <div class="trigger-box"><strong>Trigger falsificazione:</strong> {{ c.trigger_falsificazione }}</div>
+      </div>
+    </div>
+
+    {{ consensus_section(c.consenso_analisti) }}
+  </div>
+{% endmacro %}
+
+{# ── Macro: tema card ────────────────────────────────────────────────────── #}
+{% macro tema_card(t, candidati) %}
+  {% set giudizio_colors = {
+    "strong buy": "#15803d", "buy": "#22c55e",
+    "hold": "#f59e0b",
+    "sell": "#ef4444", "strong sell": "#991b1b"
+  } %}
+  <div class="card">
+    <div class="tema-header">
+      <div>
+        <span class="tema-id">{{ t.tema_id }}</span>
+        <h3 class="tema-titolo">{{ t.titolo }}</h3>
+      </div>
+      <div class="tema-evidenze">
+        {% for nid in t.evidenze %}
+        <span class="news-badge">{{ nid }}</span>
+        {% endfor %}
+      </div>
+    </div>
+
+    <p class="tema-perche">{{ t.perche_ora }}</p>
+
+    {% if t.indicatori_da_monitorare %}
+    <div class="indicatori-section">
+      <div class="indicatori-label">INDICATORI DA MONITORARE</div>
+      <ul class="indicatori-list">
+        {% for i in t.indicatori_da_monitorare %}
+        <li class="indicatori-item">{{ i }}</li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endif %}
+
+    {% if candidati %}
+    <div>
+      <div class="candidati-collegati-label">CANDIDATI COLLEGATI</div>
+      <div class="candidati-collegati-list">
+        {% for c in candidati %}
+          {% set gcolor = giudizio_colors.get(c.consenso_analisti.giudizio_sintetico.lower(), "#6b7280") %}
+          <div class="cand-badge-row">
+            <span class="cand-badge-ticker">{{ c.ticker }}</span>
+            <span class="cand-badge-name">{{ c.azienda }}</span>
+            <span class="cand-badge-score">{{ c.scoring.totale }}<span class="cand-badge-score-max">/50</span></span>
+            <span class="giudizio-badge" style="background:{{ gcolor }}">{{ c.consenso_analisti.giudizio_sintetico }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+{% endmacro %}
+
+{# ════════════════════════════════════════════════════════════════════════════
+   BODY
+   ════════════════════════════════════════════════════════════════════════════ #}
+<body>
+<div class="container">
+
+  <div class="page-header">
+    <div class="page-header-label">Equity Research Analyst — A2A Pipeline</div>
+    <h1 class="page-title">{{ label }}</h1>
+    <div class="ctx-tags">
+      {% for k, v in context.items() %}
+        {% if v and v not in ("nessuna", "nessuno", "") %}
+        <span class="ctx-tag">{{ k }}: {{ v }}</span>
+        {% endif %}
+      {% endfor %}
+    </div>
+  </div>
+
+  <h2>Sintesi Esecutiva</h2>
+  <div class="sintesi-box">{{ sintesi }}</div>
+
+  {% if json_failed %}
+  <div class="alert-error">
+    <strong>Attenzione:</strong> il parsing JSON dell&apos;output è fallito.
+    Candidati e scoring non disponibili per questo report.
+    Controlla <code>output/raw_*.json</code> per diagnosticare.
+  </div>
+  {% endif %}
+
+  {% if violations %}
+  {% set errors = violations | selectattr("severity", "equalto", "error") | list %}
+  {% set warnings = violations | selectattr("severity", "equalto", "warning") | list %}
+  {% if errors %}
+  <div class="violations-banner">
+    <div class="violations-banner-title">&#9888; REPORT CON ERRORI CRITICI — {{ errors | length }} violazion{{ "e" if errors | length == 1 else "i" }} grave{{ "" if errors | length == 1 else "i" }}</div>
+    {% for v in errors %}
+    <div class="violation-row">
+      <span class="violation-rule">{{ v.rule }}</span>
+      {% if v.ticker %}<strong>{{ v.ticker }}</strong> — {% endif %}{{ v.message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% elif warnings %}
+  <div class="violations-banner violations-banner-warning">
+    <div class="violations-banner-title">&#9888; {{ warnings | length }} avvertiment{{ "o" if warnings | length == 1 else "i" }} di qualità</div>
+    {% for v in warnings %}
+    <div class="violation-row violation-row-warning">
+      <span class="violation-rule violation-rule-warning">{{ v.rule }}</span>
+      {% if v.ticker %}<strong>{{ v.ticker }}</strong> — {% endif %}{{ v.message }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endif %}
+
+  {% if applied_corrections %}
+  <div class="alert-corrections">
+    <div class="alert-corrections-label">QA &mdash; CORREZIONI APPLICATE</div>
+    <ul class="corrections-list">
+      {% for r in applied_corrections %}
+      <li class="correction-item">{{ r }}</li>
+      {% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if report %}
+  <h2>Temi di Mercato</h2>
+  {% for t in report.temi %}
+    {{ tema_card(t, tema_map.get(t.tema_id, [])) }}
+  {% endfor %}
+
+  <h2>Candidati Azionari</h2>
+  {% for c in report.candidati %}
+    {{ candidato_card(c) }}
+  {% endfor %}
+
+  {% if report.nota_metodologica %}
+  <h2>Nota Metodologica</h2>
+  <div class="nota-box">{{ report.nota_metodologica }}</div>
+  {% endif %}
+  {% endif %}
+
+  <div class="footer">
+    Generato da Equity Research Analyst A2A &bull; Solo a scopo di ricerca e screening &bull; Non costituisce consulenza finanziaria
+    {% if exec_time_str %}
+    <div style="margin-top:4px">Esecuzione: {{ exec_time_str }}</div>
+    {% endif %}
+  </div>
+
+</div>
+</body>
+</html>

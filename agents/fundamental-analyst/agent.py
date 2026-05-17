@@ -162,7 +162,13 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         except json.JSONDecodeError:
             return A2ATaskResult.ok(task.id, raw_text)
     except Exception as e:
-        return A2ATaskResult.fail(task.id, str(e))
+        import traceback
+        traceback.print_exc()
+        causes, current = [], e
+        while current:
+            causes.append(str(current))
+            current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+        return A2ATaskResult.fail(task.id, " | ".join(causes))
 
 
 # ------------------------------------------------------------------ #

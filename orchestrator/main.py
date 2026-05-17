@@ -10,7 +10,9 @@ Grafo sequenziale con 5 nodi:
 import asyncio
 import json
 import sys
+import time
 import uuid
+import webbrowser
 from pathlib import Path
 from typing import Any, TypedDict
 
@@ -21,6 +23,7 @@ from langgraph.graph import END, StateGraph
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from shared.a2a_models import A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.report import generate_html
 
 load_dotenv(Path(__file__).parent.parent / ".env")
 
@@ -84,17 +87,22 @@ async def send_task(
     return A2ATaskResult(**rpc_resp.result)
 
 
+_RATE_LIMIT_KEYWORDS = ("rate_limit", "rate limit", "too many requests", "concurrent connections", "429")
+
 async def send_task_with_retry(
     agent_url: str,
     message: str,
     data: dict[str, Any] | None = None,
     timeout: float = 300.0,
-    max_retries: int = 3,
-    retry_delay: float = 65.0,
+    max_retries: int = 5,
+    retry_delay: float = 90.0,
 ) -> A2ATaskResult:
     for attempt in range(max_retries):
         result = await send_task(agent_url, message, data, timeout)
-        if result.status != "failed" or "rate_limit" not in result.message.text().lower():
+        if result.status != "failed":
+            return result
+        error_text = result.message.text().lower()
+        if not any(kw in error_text for kw in _RATE_LIMIT_KEYWORDS):
             return result
         if attempt < max_retries - 1:
             print(f"      ⚠ Rate limit — waiting {retry_delay:.0f}s (retry {attempt + 1}/{max_retries - 1})...")
@@ -172,8 +180,8 @@ async def node_fundamental_analyst(state: PipelineState) -> dict:
 
 
 async def node_risk_assessor(state: PipelineState) -> dict:
-    # Wait for Haiku rate limit window to reset after FundamentalAnalyst's tool calls
-    await asyncio.sleep(65)
+    # Wait for Haiku rate limit window to reset after FundamentalAnalyst's token usage
+    await asyncio.sleep(90)
     print(f"\n[4/5] RiskAssessor ← {len(state['candidates'])} candidate(s)")
     result = await send_task_with_retry(
         AGENTS["risk_assessor"],
@@ -258,16 +266,37 @@ async def run_pipeline(tickers: list[str]) -> dict:
         "qa_verdict": "",
     }
 
+    t0 = time.time()
     final_state = await _graph.ainvoke(initial_state)
+    execution_seconds = int(time.time() - t0)
 
     print("\n" + "=" * 60)
     print("  PIPELINE COMPLETE")
     print("=" * 60)
+
+    report_path, violations = generate_html(
+        executive_summary=final_state["executive_summary"],
+        report_dict=final_state["report"],
+        qa_verdict=final_state["qa_verdict"],
+        tickers=tickers,
+        execution_seconds=execution_seconds,
+    )
+    print(f"\nReport HTML salvato in: {report_path}")
+    if violations:
+        errors = [v for v in violations if v.severity == "error"]
+        warnings = [v for v in violations if v.severity == "warning"]
+        if errors:
+            print(f"  ⚠  {len(errors)} errore/i critico/i nel report")
+        if warnings:
+            print(f"  ℹ  {len(warnings)} avvertimento/i di qualità")
+    webbrowser.open(report_path.as_uri())
+
     return {
         "status": "completed",
         "executive_summary": final_state["executive_summary"],
         "qa_verdict": final_state["qa_verdict"],
         "report": final_state["report"],
+        "report_path": str(report_path),
     }
 
 

@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from beeai_framework.adapters.anthropic.backend.chat import AnthropicChatModel
 from beeai_framework.agents.react import ReActAgent
 from beeai_framework.agents.types import AgentExecutionConfig
+from beeai_framework.backend.chat import ChatModelParameters
 from beeai_framework.emitter.emitter import Emitter
 from beeai_framework.memory import UnconstrainedMemory
 from beeai_framework.tools.tool import StringToolOutput, Tool
@@ -90,12 +91,13 @@ def _make_agent() -> ReActAgent:
     model = AnthropicChatModel(
         model_id="claude-haiku-4-5-20251001",
         api_key=os.getenv("ANTHROPIC_API_KEY"),
+        parameters=ChatModelParameters(max_tokens=2048),
     )
     return ReActAgent(
         llm=model,
         tools=[VolatilityCheckTool()],
         memory=UnconstrainedMemory(),
-        execution=AgentExecutionConfig(max_iterations=25),
+        execution=AgentExecutionConfig(max_iterations=25, total_max_retries=20),
     )
 
 
@@ -198,7 +200,14 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         except json.JSONDecodeError:
             return A2ATaskResult.ok(task.id, raw_text)
     except Exception as e:
-        return A2ATaskResult.fail(task.id, str(e))
+        import traceback
+        traceback.print_exc()
+        # Unwrap exception chain so orchestrator can detect rate_limit errors
+        causes, current = [], e
+        while current:
+            causes.append(str(current))
+            current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
+        return A2ATaskResult.fail(task.id, " | ".join(causes))
 
 
 # ------------------------------------------------------------------ #

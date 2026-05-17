@@ -7,6 +7,7 @@ Ogni test verifica che la risposta A2A sia strutturalmente corretta
 e che il campo status sia "completed".
 """
 import json
+import uuid
 import pytest
 import httpx
 from conftest import base_url, a2a_payload
@@ -91,12 +92,27 @@ _DUMMY_CANDIDATES = json.dumps([{
 
 
 def test_risk_assessor(http: httpx.Client):
-    text = (
-        f"Candidates: {_DUMMY_CANDIDATES}\n"
-        f"Fundamentals: {_DUMMY_FUNDAMENTALS}\n"
-        f"Assess risk and score each candidate."
-    )
-    r = http.post(f"{base_url(8004)}/tasks", json=a2a_payload(text))
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "tasks/send",
+        "id": 1,
+        "params": {
+            "id": str(uuid.uuid4()),
+            "message": {
+                "role": "user",
+                "parts": [
+                    {
+                        "type": "data",
+                        "data": {
+                            "candidates": json.loads(_DUMMY_CANDIDATES),
+                            "fundamentals": json.loads(_DUMMY_FUNDAMENTALS),
+                        },
+                    }
+                ],
+            },
+        },
+    }
+    r = http.post(f"{base_url(8004)}/tasks", json=payload)
     result = _rpc_result(r)
     assert result["status"] == "completed"
 
