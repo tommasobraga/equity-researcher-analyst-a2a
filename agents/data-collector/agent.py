@@ -27,7 +27,6 @@ from shared.tools.yfinance_tool import get_stock_fundamentals
 log = structlog.get_logger()
 
 _MODEL_ID = "claude-haiku-4-5-20251001"
-_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Tool definition + executor                                           #
@@ -109,9 +108,10 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         return result
 
     text_input = task.message.text()
+    client = get_llm_client()
     try:
         raw_text = await react_loop(
-            client=_client,
+            client=client,
             system=_INSTRUCTIONS,
             user_prompt=text_input,
             tools=_TOOLS,

@@ -10,12 +10,11 @@ _RETRY_BACKOFF = 2  # seconds
 _ITEMS_PER_FEED = 5
 
 RSS_FEEDS = {
-    "Reuters Markets": "https://feeds.reuters.com/reuters/businessNews",
-    "Yahoo Finance": "https://finance.yahoo.com/news/rssindex",
-    "MarketWatch": "https://feeds.content.dowjones.io/public/rss/mw_topstories",
-    "Investing.com": "https://www.investing.com/rss/news.rss",
+    "Reuters Markets":    "https://feeds.reuters.com/reuters/businessNews",
     "Reuters Technology": "https://feeds.reuters.com/reuters/technologyNews",
-    "Investing.com EU": "https://www.investing.com/rss/news_14.rss",
+    "Yahoo Finance":      "https://finance.yahoo.com/news/rssindex",
+    "MarketWatch":        "https://feeds.content.dowjones.io/public/rss/mw_topstories",
+    # Investing.com rimosso — violazione ToS, no licenza dati pubblica (policy ❌)
 }
 
 

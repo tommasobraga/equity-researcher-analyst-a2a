@@ -16,7 +16,7 @@ uv run python agents/data-collector/agent.py      # :8001
 uv run python agents/news-sentiment/agent.py      # :8002
 uv run python agents/fundamental-analyst/agent.py # :8003
 uv run python agents/risk-assessor/agent.py       # :8004
-uv run python agents/report-writer/agent.py       # :8005
+uv run python agents/report-writer/agent.py       # :8009
 
 # Run the full pipeline (requires all agents running)
 uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI

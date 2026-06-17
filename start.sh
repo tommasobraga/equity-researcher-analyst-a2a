@@ -14,7 +14,7 @@ AGENTS=(
   "news-sentiment:8002"
   "fundamental-analyst:8003"
   "risk-assessor:8004"
-  "report-writer:8005"
+  "report-writer:8009"
 )
 
 HEALTH_RETRIES=20   # tentativi ogni 1s → max 20s per agente
@@ -50,9 +50,16 @@ if [[ "${1:-}" == "stop" ]]; then
 fi
 
 # ── pre-flight ────────────────────────────────────────────────────────────────
-[[ -f "$REPO_DIR/.env" ]] || die "File .env mancante in $REPO_DIR"
 mkdir -p "$LOG_DIR"
 > "$PID_FILE"
+
+# Propagate key env vars to agent subprocesses.
+# DEMO_MODE defaults to true (nessuna chiamata LLM) se non già impostato.
+export DEMO_MODE="${DEMO_MODE:-true}"
+export LLM_PROVIDER="${LLM_PROVIDER:-local}"
+
+echo ""
+echo -e "${YELLOW}Modalità:${NC} DEMO_MODE=${DEMO_MODE}  LLM_PROVIDER=${LLM_PROVIDER}"
 
 # ── avvio a cascata ───────────────────────────────────────────────────────────
 for entry in "${AGENTS[@]}"; do
@@ -65,15 +72,16 @@ for entry in "${AGENTS[@]}"; do
 
   echo ""
   # se la porta è già occupata, termina il processo che la detiene
-  existing_pid="$(lsof -ti tcp:"$port" 2>/dev/null || true)"
+  # (Windows-compatible: netstat.exe/taskkill.exe invece di lsof/kill)
+  existing_pid=""
+  _netstat_out="$(netstat.exe -ano 2>/dev/null || true)"
+  if [[ -n "$_netstat_out" ]]; then
+    existing_pid="$(echo "$_netstat_out" | grep ":${port} " | grep LISTENING | awk '{print $NF}' | head -1 || true)"
+  fi
   if [[ -n "$existing_pid" ]]; then
     warn "${name} già attivo su :${port} (PID ${existing_pid}) — riavvio..."
-    kill "$existing_pid" 2>/dev/null || true
-    # attendi che la porta si liberi (max 5s)
-    for ((w=1; w<=5; w++)); do
-      lsof -ti tcp:"$port" > /dev/null 2>&1 || break
-      sleep 1
-    done
+    taskkill.exe //PID "$existing_pid" //F 2>/dev/null || true
+    sleep 2
   fi
 
   echo "Avvio ${name} su :${port}..."

@@ -1,4 +1,4 @@
-"""Report Writer agent — Anthropic API diretta + FastAPI, porta 8005.
+"""Report Writer agent — Anthropic API diretta + FastAPI, porta 8009.
 
 Produce il report finale in italiano: executive summary + JSON strutturato.
 Include un passaggio di QA interno prima di restituire l'output.
@@ -28,8 +28,6 @@ log = structlog.get_logger()
 
 _MODEL_REPORT = "claude-sonnet-4-6"
 _MODEL_QA = "claude-sonnet-4-6"
-
-_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Prompts                                                              #
@@ -128,7 +126,7 @@ Non riprodurre il report. Non correggere testi liberi."""
 
 def _call_claude(system: str, user: str, model: str, max_tokens: int) -> tuple[str, dict]:
     """Returns (text, token_usage) where token_usage = {"input": N, "output": N}."""
-    response = _client.messages.create(
+    response = get_llm_client().messages.create(
         model=model,
         max_tokens=max_tokens,
         system=system,
@@ -287,7 +285,7 @@ async def receive_task(rpc: JsonRpcRequest) -> JSONResponse:
 
 @app.get("/health")
 async def health():
-    return {"status": "ok", "agent": "ReportWriter", "port": 8005}
+    return {"status": "ok", "agent": "ReportWriter", "port": 8009}
 
 
 # ------------------------------------------------------------------ #
@@ -295,4 +293,4 @@ async def health():
 # ------------------------------------------------------------------ #
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8005, log_level="info")
+    uvicorn.run(app, host="0.0.0.0", port=8009, log_level="info")

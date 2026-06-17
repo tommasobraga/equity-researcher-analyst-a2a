@@ -32,7 +32,6 @@ from shared.tools.yfinance_tool import get_stock_fundamentals
 log = structlog.get_logger()
 
 _MODEL_ID = "claude-sonnet-4-6"
-_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Conditional constraint check                                         #
@@ -183,9 +182,10 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         "Now perform the risk assessment for each candidate."
     )
 
+    client = get_llm_client()
     try:
         raw_text = await react_loop(
-            client=_client,
+            client=client,
             system=_INSTRUCTIONS.format(today=today),
             user_prompt=user_prompt,
             tools=_TOOLS,

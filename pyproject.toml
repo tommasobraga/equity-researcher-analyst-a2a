@@ -14,11 +14,13 @@ dependencies = [
     # Anthropic — Orchestrator, Report Writer, shared
     "anthropic>=0.40.0",
     # Financial data tools
+    # yfinance rimosso — policy ❌ (scraping non autorizzato, no SLA, no licenza commerciale)
+    # Sostituzione con provider certificato pianificata in Fase 5 (Refinitiv/Bloomberg/Alpha Vantage)
     "feedparser>=6.0.12",
-    "yfinance>=1.2.0",
     # Orchestrator
     "langgraph>=0.2.0",
     "langgraph-checkpoint-sqlite>=2.0.0",
+    "aiosqlite>=0.19.0",
     "tenacity>=8.2.0",
     # Shared utilities
     "structlog>=24.0.0",

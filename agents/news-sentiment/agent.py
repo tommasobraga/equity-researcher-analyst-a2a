@@ -27,7 +27,6 @@ from shared.tools.rss_feed import fetch_rss_news
 log = structlog.get_logger()
 
 _MODEL_ID = "claude-haiku-4-5-20251001"
-_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Tool definition + executor                                           #
@@ -122,9 +121,10 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     focus = task.message.text() or "Technology, AI, Banking, Financial Services"
     user_prompt = f"Focus on sectors/topics: {focus}\nNow fetch the news and return the JSON."
+    client = get_llm_client()
     try:
         raw_text = await react_loop(
-            client=_client,
+            client=client,
             system=_INSTRUCTIONS,
             user_prompt=user_prompt,
             tools=_TOOLS,

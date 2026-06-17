@@ -8,7 +8,7 @@ AGENTS = {
     "news-sentiment":      {"port": 8002, "name": "NewsSentiment"},
     "fundamental-analyst": {"port": 8003, "name": "FundamentalAnalyst"},
     "risk-assessor":       {"port": 8004, "name": "RiskAssessor"},
-    "report-writer":       {"port": 8005, "name": "ReportWriter"},
+    "report-writer":       {"port": 8009, "name": "ReportWriter"},
 }
 
 

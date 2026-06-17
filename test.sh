@@ -28,14 +28,17 @@ for arg in "$@"; do
   esac
 done
 
+# Demo mode di default per tutti i sottoprocessi
+export DEMO_MODE="${DEMO_MODE:-true}"
+
 # ── avvio agenti ──────────────────────────────────────────────────────────────
-step "[ 1/3 ] Avvio agenti..."
+step "[ 1/4 ] Avvio agenti (DEMO_MODE=${DEMO_MODE})..."
 "$REPO_DIR/start.sh"
 
 # ── cleanup on exit ───────────────────────────────────────────────────────────
 cleanup() {
   if $STOP_AFTER; then
-    step "[ 3/3 ] Spegnimento agenti..."
+    step "[ 4/4 ] Spegnimento agenti..."
     "$REPO_DIR/start.sh" stop
   else
     warn "Flag --no-stop: agenti lasciati attivi."
@@ -43,9 +46,14 @@ cleanup() {
 }
 trap cleanup EXIT
 
-# ── pytest ────────────────────────────────────────────────────────────────────
-step "[ 2/3 ] Esecuzione test..."
+# ── pipeline smoke run ────────────────────────────────────────────────────────
+step "[ 2/4 ] Pipeline smoke run (AAPL MSFT UCG.MI)..."
 cd "$REPO_DIR"
+uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI --output /dev/null
+ok "Pipeline completata senza errori."
+
+# ── pytest ────────────────────────────────────────────────────────────────────
+step "[ 3/4 ] Esecuzione test..."
 uv run pytest tests/ -v "${PYTEST_EXTRA_ARGS[@]}"
 PYTEST_EXIT=$?
 

@@ -11,6 +11,7 @@ In locale viene letto da .env; in produzione da Azure Key Vault o AWS Secrets Ma
 """
 import hashlib
 import hmac
+import os
 import time
 
 from fastapi import Request
@@ -40,6 +41,11 @@ class HMACMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         if request.method == "POST" and request.url.path == "/tasks":
+            # Se A2A_SHARED_SECRET non è configurato, HMAC è disabilitato
+            if not os.getenv("A2A_SHARED_SECRET"):
+                return await call_next(request)
+            secret = get_secret("A2A_SHARED_SECRET")
+
             timestamp = request.headers.get("X-A2A-Timestamp")
             signature = request.headers.get("X-A2A-Signature")
 
@@ -58,12 +64,6 @@ class HMACMiddleware(BaseHTTPMiddleware):
                 return JSONResponse({"error": "Request timestamp outside replay window"}, status_code=401)
 
             body = await request.body()
-            try:
-                secret = get_secret("A2A_SHARED_SECRET")
-            except (KeyError, EnvironmentError):
-                # Se il secret non è configurato (es. dev senza HMAC), passa attraverso
-                return await call_next(request)
-
             expected = _compute_signature(secret, timestamp, body)
             if not hmac.compare_digest(expected, signature):
                 return JSONResponse({"error": "Invalid signature"}, status_code=401)

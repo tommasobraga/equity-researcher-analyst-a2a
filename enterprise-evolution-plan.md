@@ -34,9 +34,9 @@ Il piano è strutturato in **6 fasi milestone ordinate per priorità**. Non risc
 | AWS Bedrock (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Autenticazione via IAM role. Provisioning tramite CAPP (Global IT) o CMO (resto Accenture) |
 | Azure AI Foundry (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Coerente con Azure Key Vault (Fase 2). Autenticazione via Azure Managed Identity / service principal |
 | Google Vertex AI (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Autenticazione via GCP service account |
-| yfinance | Fonte dati | ❌ | Scraping non ufficiale di Yahoo Finance. Nessun SLA, nessuna licenza d'uso commerciale, dati non certificati. Incompatibile con financial services enterprise e con MiFID II. **Da sostituire in Fase 5** |
+| yfinance | Fonte dati | ❌ | Scraping non ufficiale di Yahoo Finance. Nessun SLA, nessuna licenza d'uso commerciale, dati non certificati. Incompatibile con financial services enterprise e con MiFID II. **Rimosso anticipatamente — stub NotImplementedError in shared/tools/yfinance_tool.py. Sostituzione con provider certificato in Fase 5** |
 | RSS Reuters / Yahoo Finance / MarketWatch | Fonte dati | ⚠️ | Feed pubblici senza licenza dati esplicita per uso commerciale/analitico. Reuters ha policy restrittive sul riuso dei contenuti. Da verificare con Legal prima di un deployment production |
-| RSS Investing.com ×2 | Fonte dati | ❌ | Investing.com ha storicamente bloccato scraping e non offre licenza dati pubblica. Alto rischio di violazione ToS. **Da sostituire o eliminare in Fase 5** |
+| RSS Investing.com ×2 | Fonte dati | ❌ | Investing.com ha storicamente bloccato scraping e non offre licenza dati pubblica. Alto rischio di violazione ToS. **Rimosso anticipatamente da shared/tools/rss_feed.py** |
 
 ---
 

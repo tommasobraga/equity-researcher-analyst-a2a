@@ -15,7 +15,6 @@ import asyncio
 import json
 import os
 import re
-import sqlite3
 import sys
 import time
 import uuid
@@ -25,7 +24,7 @@ from typing import Any, TypedDict
 
 import httpx
 import structlog
-from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 from langgraph.graph import END, StateGraph
 from tenacity import (
     AsyncRetrying,
@@ -49,7 +48,7 @@ AGENTS = {
     "news_sentiment":      "http://localhost:8002",
     "fundamental_analyst": "http://localhost:8003",
     "risk_assessor":       "http://localhost:8004",
-    "report_writer":       "http://localhost:8005",
+    "report_writer":       "http://localhost:8009",
 }
 
 MAX_NEWS_PAYLOAD       = int(os.getenv("MAX_NEWS_PAYLOAD", "15"))
@@ -387,7 +386,7 @@ async def node_report_writer(state: PipelineState) -> dict:
 # Graph definition                                                     #
 # ------------------------------------------------------------------ #
 
-def _build_graph() -> StateGraph:
+def _build_graph_builder() -> StateGraph:
     builder = StateGraph(PipelineState)
 
     builder.add_node("data_collector", node_data_collector)
@@ -403,13 +402,7 @@ def _build_graph() -> StateGraph:
     builder.add_edge("risk_assessor", "report_writer")
     builder.add_edge("report_writer", END)
 
-    Path("output").mkdir(exist_ok=True)
-    conn = sqlite3.connect("output/checkpoints.db", check_same_thread=False)
-    checkpointer = SqliteSaver(conn)
-    return builder.compile(checkpointer=checkpointer)
-
-
-_graph = _build_graph()
+    return builder
 
 
 # ------------------------------------------------------------------ #
@@ -449,7 +442,10 @@ async def run_pipeline(tickers: list[str]) -> dict:
 
     t0 = time.time()
     config = {"configurable": {"thread_id": run_id}}
-    final_state = await _graph.ainvoke(initial_state, config=config)
+    Path("output").mkdir(exist_ok=True)
+    async with AsyncSqliteSaver.from_conn_string("output/checkpoints.db") as checkpointer:
+        graph = _build_graph_builder().compile(checkpointer=checkpointer)
+        final_state = await graph.ainvoke(initial_state, config=config)
     execution_seconds = int(time.time() - t0)
 
     degraded = final_state.get("degraded", {})
