@@ -1,66 +1,78 @@
-"""Data Collector agent — OpenAI Agents SDK + FastAPI, porta 8001.
+"""Data Collector agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8001.
 
-Receives a list of equity tickers via A2A and returns fundamentals
-fetched from yfinance for each ticker.
+Riceve una lista di ticker equity via A2A e restituisce i fondamentali
+da yfinance per ciascun ticker.
 """
+import asyncio
 import json
-import os
 import sys
+import time
 from pathlib import Path
 
+import structlog
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
-# Make shared/ importable regardless of working directory
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from agents.extensions.models.litellm_model import LitellmModel
-
-from agents import Agent, Runner, function_tool
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.audit import make_audit_event, write_audit_event
+from shared.demo import is_demo_mode, load_demo_response
+from shared.hmac_auth import HMACMiddleware
+from shared.llm_client import get_llm_client
+from shared.react import react_loop
 from shared.tools.yfinance_tool import get_stock_fundamentals
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+log = structlog.get_logger()
+
+_MODEL_ID = "claude-haiku-4-5-20251001"
+_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
-# Tool                                                                 #
+# Tool definition + executor                                           #
 # ------------------------------------------------------------------ #
 
-@function_tool
-def fetch_fundamentals(ticker: str) -> str:
-    """Fetch real fundamental data for an equity ticker from yfinance.
+_TOOLS = [
+    {
+        "name": "fetch_fundamentals",
+        "description": (
+            "Fetch real fundamental data for an equity ticker from yfinance. "
+            "Call this for each ticker individually. "
+            "Input: ticker symbol, e.g. AAPL, UCG.MI, ASML.AS"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol"}
+            },
+            "required": ["ticker"],
+        },
+    }
+]
 
-    Args:
-        ticker: Stock ticker symbol, e.g. AAPL, UCG.MI, ASML.AS
-    """
+
+async def _fetch_fundamentals(input: dict) -> str:
+    ticker = input["ticker"].strip().upper()
     try:
-        data = get_stock_fundamentals(ticker)
+        data = await asyncio.to_thread(get_stock_fundamentals, ticker)
         return json.dumps(data)
     except Exception as e:
         return json.dumps({"ticker": ticker, "error": str(e)})
 
 
+_EXECUTORS = {"fetch_fundamentals": _fetch_fundamentals}
+
+
 # ------------------------------------------------------------------ #
-# Agent                                                                #
+# Prompt                                                               #
 # ------------------------------------------------------------------ #
 
-_MODEL = LitellmModel(
-    model="anthropic/claude-haiku-4-5-20251001",
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-)
-
-data_collector_agent = Agent(
-    name="DataCollector",
-    model=_MODEL,
-    instructions=(
-        "You are a financial data agent. Given a list of equity tickers, "
-        "call fetch_fundamentals for EACH ticker individually and collect the results. "
-        "Return a JSON array where each element is the fundamentals dict for one ticker. "
-        "Do not add commentary — only the JSON array."
-    ),
-    tools=[fetch_fundamentals],
+_INSTRUCTIONS = (
+    "You are a financial data agent. Given a list of equity tickers, "
+    "call fetch_fundamentals for EACH ticker individually and collect all results. "
+    "Return ONLY a JSON array where each element is the fundamentals dict for one ticker. "
+    "No prose, no markdown fences."
 )
 
 
@@ -68,31 +80,71 @@ data_collector_agent = Agent(
 # Core logic                                                           #
 # ------------------------------------------------------------------ #
 
-def _strip_markdown_json(text: str) -> str:
-    """Remove ```json ... ``` or ``` ... ``` fences if present."""
+def _extract_json_array(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
-        # drop first line (```json or ```) and last line (```)
         inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
         text = "\n".join(inner).strip()
+    start = text.find("[")
+    end = text.rfind("]") + 1
+    if start != -1 and end > start:
+        return text[start:end]
     return text
 
 
 async def run_agent(task: A2ATask) -> A2ATaskResult:
+    correlation_id = task.metadata.get("correlation_id")
+    t0 = time.monotonic()
+
+    if is_demo_mode():
+        demo = load_demo_response("data-collector")
+        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        write_audit_event(make_audit_event(
+            agent="DataCollector", status="demo",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000), demo_mode=True,
+        ))
+        log.info("agent.demo", agent="DataCollector", correlation_id=correlation_id)
+        return result
+
     text_input = task.message.text()
     try:
-        result = await Runner.run(data_collector_agent, input=text_input)
-        output = _strip_markdown_json(result.final_output)
+        raw_text = await react_loop(
+            client=_client,
+            system=_INSTRUCTIONS,
+            user_prompt=text_input,
+            tools=_TOOLS,
+            executors=_EXECUTORS,
+            model=_MODEL_ID,
+        )
+        output = _extract_json_array(raw_text)
         try:
             data = json.loads(output)
-            return A2ATaskResult.ok(
+            a2a_result = A2ATaskResult.ok(
                 task.id, "Fundamentals fetched successfully.", data={"fundamentals": data}
             )
         except json.JSONDecodeError:
-            return A2ATaskResult.ok(task.id, output)
+            a2a_result = A2ATaskResult.ok(task.id, raw_text)
+            data = []
+        write_audit_event(make_audit_event(
+            agent="DataCollector", status="completed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            prompt=_INSTRUCTIONS, input_text=text_input, output_text=raw_text,
+        ))
+        log.info("agent.completed", agent="DataCollector", correlation_id=correlation_id)
+        return a2a_result
     except Exception as e:
-        return A2ATaskResult.fail(task.id, str(e))
+        error_msg = str(e)
+        write_audit_event(make_audit_event(
+            agent="DataCollector", status="failed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            extra={"error": error_msg},
+        ))
+        log.error("agent.failed", agent="DataCollector", correlation_id=correlation_id, error=error_msg)
+        return A2ATaskResult.fail(task.id, error_msg)
 
 
 # ------------------------------------------------------------------ #
@@ -100,6 +152,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 # ------------------------------------------------------------------ #
 
 app = FastAPI(title="DataCollector A2A Agent")
+app.add_middleware(HMACMiddleware)
 
 _WELL_KNOWN = Path(__file__).parent / ".well-known" / "agent.json"
 
@@ -122,8 +175,7 @@ async def receive_task(rpc: JsonRpcRequest) -> JSONResponse:
         return JSONResponse(resp.model_dump(), status_code=422)
 
     result = await run_agent(task)
-    resp = JsonRpcResponse.ok(result.model_dump(), rpc.id)
-    return JSONResponse(resp.model_dump())
+    return JSONResponse(JsonRpcResponse.ok(result.model_dump(), rpc.id).model_dump())
 
 
 @app.get("/health")

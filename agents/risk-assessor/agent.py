@@ -1,46 +1,44 @@
-"""Risk Assessor agent — BeeAI ReActAgent + Conditional Constraints + FastAPI, porta 8004.
+"""Risk Assessor agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8004.
 
 Riceve i candidati equity dal Fundamental Analyst e produce:
 - Scenari base/bull/bear per ogni candidato
 - Scoring su 5 dimensioni (1-10 ciascuna, max 50 totale)
 - Guardrail: rifiuta l'output se i dati di volatilità (52w range, P/E) sono assenti.
-Mappa risk_assessor di CrewAI.
+Sostituisce BeeAI ReActAgent con react_loop nativo Anthropic SDK.
 """
 import asyncio
 import json
-import os
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
 
+import structlog
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
-from pydantic import BaseModel
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from beeai_framework.adapters.anthropic.backend.chat import AnthropicChatModel
-from beeai_framework.agents.react import ReActAgent
-from beeai_framework.agents.types import AgentExecutionConfig
-from beeai_framework.backend.chat import ChatModelParameters
-from beeai_framework.emitter.emitter import Emitter
-from beeai_framework.memory import UnconstrainedMemory
-from beeai_framework.tools.tool import StringToolOutput, Tool
-
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.audit import make_audit_event, write_audit_event
+from shared.demo import is_demo_mode, load_demo_response
+from shared.hmac_auth import HMACMiddleware
+from shared.llm_client import get_llm_client
+from shared.react import react_loop
 from shared.tools.yfinance_tool import get_stock_fundamentals
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+log = structlog.get_logger()
+
+_MODEL_ID = "claude-sonnet-4-6"
+_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Conditional constraint check                                         #
 # ------------------------------------------------------------------ #
 
 def _has_volatility_data(candidate: dict) -> bool:
-    """Guardrail: candidate must have 52w range and P/E to score risk."""
     fund = candidate.get("fundamentals", {})
     has_range = fund.get("52w_range") not in (None, "N/A", "None-None", "")
     has_pe = fund.get("pe_ttm") not in (None, "N/A", "")
@@ -48,61 +46,49 @@ def _has_volatility_data(candidate: dict) -> bool:
 
 
 # ------------------------------------------------------------------ #
-# Tool                                                                 #
+# Tool definition + executor                                           #
 # ------------------------------------------------------------------ #
 
-class VolatilityCheckInput(BaseModel):
-    ticker: str
+_TOOLS = [
+    {
+        "name": "check_volatility_data",
+        "description": (
+            "Fetch 52-week range and P/E ratio for a ticker to verify volatility data "
+            "is available before scoring risk. Returns 'OK — 52w: X-Y, P/E TTM: Z' "
+            "or 'MISSING: <fields>'."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol"}
+            },
+            "required": ["ticker"],
+        },
+    }
+]
 
 
-class VolatilityCheckTool(Tool[VolatilityCheckInput, None, StringToolOutput]):
-    name = "check_volatility_data"
-    description = (
-        "Fetch 52-week range and P/E ratio for a ticker to verify volatility data "
-        "is available before scoring risk. Returns 'OK' or 'MISSING: <fields>'."
-    )
-    input_schema = VolatilityCheckInput
-
-    def _create_emitter(self) -> Emitter:
-        return Emitter.root().child(namespace=["tool", "volatility_check"], creator=self)
-
-    async def _run(self, input: VolatilityCheckInput, options=None, context=None) -> StringToolOutput:
-        try:
-            data = await asyncio.to_thread(get_stock_fundamentals, input.ticker.strip().upper())
-            missing = []
-            if data.get("week52_low") is None or data.get("week52_high") is None:
-                missing.append("52w_range")
-            if data.get("pe_ttm") is None:
-                missing.append("pe_ttm")
-            if missing:
-                return StringToolOutput(f"MISSING: {', '.join(missing)}")
-            return StringToolOutput(
-                f"OK — 52w: {data['week52_low']}-{data['week52_high']}, P/E TTM: {data['pe_ttm']}"
-            )
-        except Exception as e:
-            return StringToolOutput(f"ERROR: {e}")
+async def _check_volatility(input: dict) -> str:
+    ticker = input["ticker"].strip().upper()
+    try:
+        data = await asyncio.to_thread(get_stock_fundamentals, ticker)
+        missing = []
+        if data.get("week52_low") is None or data.get("week52_high") is None:
+            missing.append("52w_range")
+        if data.get("pe_ttm") is None:
+            missing.append("pe_ttm")
+        if missing:
+            return f"MISSING: {', '.join(missing)}"
+        return f"OK — 52w: {data['week52_low']}-{data['week52_high']}, P/E TTM: {data['pe_ttm']}"
+    except Exception as e:
+        return f"ERROR: {e}"
 
 
-# ------------------------------------------------------------------ #
-# Agent factory                                                        #
-# ------------------------------------------------------------------ #
-
-def _make_agent() -> ReActAgent:
-    model = AnthropicChatModel(
-        model_id="claude-haiku-4-5-20251001",
-        api_key=os.getenv("ANTHROPIC_API_KEY"),
-        parameters=ChatModelParameters(max_tokens=2048),
-    )
-    return ReActAgent(
-        llm=model,
-        tools=[VolatilityCheckTool()],
-        memory=UnconstrainedMemory(),
-        execution=AgentExecutionConfig(max_iterations=25, total_max_retries=20),
-    )
+_EXECUTORS = {"check_volatility_data": _check_volatility}
 
 
 # ------------------------------------------------------------------ #
-# Core logic                                                           #
+# Prompt                                                               #
 # ------------------------------------------------------------------ #
 
 _INSTRUCTIONS = """You are a CFA-aligned risk analyst. Today is {today}.
@@ -149,6 +135,10 @@ Return ONLY a JSON array (no prose, no markdown fences):
 }}]"""
 
 
+# ------------------------------------------------------------------ #
+# Core logic                                                           #
+# ------------------------------------------------------------------ #
+
 def _extract_json_array(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -163,6 +153,20 @@ def _extract_json_array(text: str) -> str:
 
 
 async def run_agent(task: A2ATask) -> A2ATaskResult:
+    correlation_id = task.metadata.get("correlation_id")
+    t0 = time.monotonic()
+
+    if is_demo_mode():
+        demo = load_demo_response("risk-assessor")
+        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        write_audit_event(make_audit_event(
+            agent="RiskAssessor", status="demo",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000), demo_mode=True,
+        ))
+        log.info("agent.demo", agent="RiskAssessor", correlation_id=correlation_id)
+        return result
+
     input_data: dict[str, Any] = {}
     for part in task.message.parts:
         if hasattr(part, "data"):
@@ -174,40 +178,52 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     today = date.today().isoformat()
     candidates_json = json.dumps(candidates, ensure_ascii=False)
-
-    prompt = (
-        _INSTRUCTIONS.format(today=today) + "\n\n"
+    user_prompt = (
         f"EQUITY CANDIDATES:\n{candidates_json}\n\n"
         "Now perform the risk assessment for each candidate."
     )
 
     try:
-        agent = _make_agent()
-        response = await agent.run(prompt)
-        raw_text = ""
-        for iteration in reversed(response.iterations):
-            if iteration.state.final_answer:
-                raw_text = iteration.state.final_answer
-                break
+        raw_text = await react_loop(
+            client=_client,
+            system=_INSTRUCTIONS.format(today=today),
+            user_prompt=user_prompt,
+            tools=_TOOLS,
+            executors=_EXECUTORS,
+            model=_MODEL_ID,
+        )
         output = _extract_json_array(raw_text)
         try:
             risk_data = json.loads(output)
-            return A2ATaskResult.ok(
+            a2a_result = A2ATaskResult.ok(
                 task.id,
                 f"Risk assessment complete for {len(risk_data)} candidate(s).",
                 data={"risk_assessment": risk_data, "candidates": candidates},
             )
         except json.JSONDecodeError:
-            return A2ATaskResult.ok(task.id, raw_text)
+            a2a_result = A2ATaskResult.ok(task.id, raw_text)
+            risk_data = []
+        write_audit_event(make_audit_event(
+            agent="RiskAssessor", status="completed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            prompt=_INSTRUCTIONS, input_text=candidates_json, output_text=raw_text,
+            extra={"assessed_count": len(risk_data)},
+        ))
+        log.info("agent.completed", agent="RiskAssessor", correlation_id=correlation_id,
+                 assessed_count=len(risk_data))
+        return a2a_result
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        # Unwrap exception chain so orchestrator can detect rate_limit errors
-        causes, current = [], e
-        while current:
-            causes.append(str(current))
-            current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
-        return A2ATaskResult.fail(task.id, " | ".join(causes))
+        error_msg = str(e)
+        write_audit_event(make_audit_event(
+            agent="RiskAssessor", status="failed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            extra={"error": error_msg},
+        ))
+        log.error("agent.failed", agent="RiskAssessor", correlation_id=correlation_id,
+                  error=error_msg)
+        return A2ATaskResult.fail(task.id, error_msg)
 
 
 # ------------------------------------------------------------------ #
@@ -215,6 +231,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 # ------------------------------------------------------------------ #
 
 app = FastAPI(title="RiskAssessor A2A Agent")
+app.add_middleware(HMACMiddleware)
 
 _WELL_KNOWN = Path(__file__).parent / ".well-known" / "agent.json"
 

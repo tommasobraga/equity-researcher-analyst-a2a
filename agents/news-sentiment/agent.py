@@ -1,55 +1,72 @@
-"""News & Sentiment agent — Smolagents CodeAgent + FastAPI, porta 8002.
+"""News & Sentiment agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8002.
 
 Legge i feed RSS finanziari e raggruppa le notizie in macro-temi
 di mercato rilevanti per equity US/EU.
 """
 import asyncio
 import json
-import os
 import sys
+import time
 from pathlib import Path
 
+import structlog
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from smolagents import CodeAgent, LiteLLMModel, tool
-
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.audit import make_audit_event, write_audit_event
+from shared.demo import is_demo_mode, load_demo_response
+from shared.hmac_auth import HMACMiddleware
+from shared.llm_client import get_llm_client
+from shared.react import react_loop
 from shared.tools.rss_feed import fetch_rss_news
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+log = structlog.get_logger()
+
+_MODEL_ID = "claude-haiku-4-5-20251001"
+_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
-# Tool                                                                 #
+# Tool definition + executor                                           #
 # ------------------------------------------------------------------ #
 
-@tool
-def read_financial_rss(max_items_per_feed: int = 5) -> str:
-    """Read financial news RSS feeds from Reuters, Yahoo Finance, MarketWatch, Investing.com.
+_TOOLS = [
+    {
+        "name": "read_financial_rss",
+        "description": (
+            "Read financial news RSS feeds from Reuters, Yahoo Finance, MarketWatch, Investing.com. "
+            "Returns formatted headlines and summaries from all sources."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "max_items_per_feed": {
+                    "type": "integer",
+                    "description": "Maximum number of articles to fetch per source (default 5).",
+                }
+            },
+            "required": [],
+        },
+    }
+]
 
-    Args:
-        max_items_per_feed: Maximum number of articles to fetch per source (default 5).
 
-    Returns:
-        Formatted string with headlines and summaries from all sources.
-    """
-    return fetch_rss_news(max_items_per_feed=max_items_per_feed)
+async def _read_rss(input: dict) -> str:
+    max_items = input.get("max_items_per_feed", 5)
+    return await asyncio.to_thread(fetch_rss_news, max_items_per_feed=max_items)
+
+
+_EXECUTORS = {"read_financial_rss": _read_rss}
 
 
 # ------------------------------------------------------------------ #
-# Agent                                                                #
+# Prompt                                                               #
 # ------------------------------------------------------------------ #
 
-_MODEL = LiteLLMModel(
-    model_id="anthropic/claude-haiku-4-5-20251001",
-    api_key=os.getenv("ANTHROPIC_API_KEY"),
-)
-
-_SYSTEM_PROMPT = """You are a financial news analyst specializing in US and EU equity markets.
+_INSTRUCTIONS = """You are a financial news analyst specializing in US and EU equity markets.
 
 Your job:
 1. Call read_financial_rss to fetch today's financial news.
@@ -70,26 +87,17 @@ Your job:
   ]
 }"""
 
-news_sentiment_agent = CodeAgent(
-    model=_MODEL,
-    tools=[read_financial_rss],
-    max_steps=5,
-    additional_authorized_imports=["json"],
-)
-
 
 # ------------------------------------------------------------------ #
 # Core logic                                                           #
 # ------------------------------------------------------------------ #
 
 def _extract_json(text: str) -> str:
-    """Extract JSON object from text, stripping markdown fences if present."""
     text = text.strip()
     if text.startswith("```"):
         lines = text.splitlines()
         inner = lines[1:-1] if lines[-1].strip() == "```" else lines[1:]
         text = "\n".join(inner).strip()
-    # Find first { and last }
     start = text.find("{")
     end = text.rfind("}") + 1
     if start != -1 and end > start:
@@ -98,29 +106,58 @@ def _extract_json(text: str) -> str:
 
 
 async def run_agent(task: A2ATask) -> A2ATaskResult:
+    correlation_id = task.metadata.get("correlation_id")
+    t0 = time.monotonic()
+
+    if is_demo_mode():
+        demo = load_demo_response("news-sentiment")
+        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        write_audit_event(make_audit_event(
+            agent="NewsSentiment", status="demo",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000), demo_mode=True,
+        ))
+        log.info("agent.demo", agent="NewsSentiment", correlation_id=correlation_id)
+        return result
+
     focus = task.message.text() or "Technology, AI, Banking, Financial Services"
-    prompt = (
-        f"{_SYSTEM_PROMPT}\n\n"
-        f"Focus on sectors/topics: {focus}\n"
-        "Now fetch the news and return the JSON."
-    )
+    user_prompt = f"Focus on sectors/topics: {focus}\nNow fetch the news and return the JSON."
     try:
-        output = await asyncio.to_thread(news_sentiment_agent.run, prompt)
-        # smolagents may return a dict directly or a JSON string
-        if isinstance(output, dict):
-            data = output
-        else:
-            raw = _extract_json(str(output))
-            data = json.loads(raw)
+        raw_text = await react_loop(
+            client=_client,
+            system=_INSTRUCTIONS,
+            user_prompt=user_prompt,
+            tools=_TOOLS,
+            executors=_EXECUTORS,
+            model=_MODEL_ID,
+        )
+        raw = _extract_json(raw_text)
+        data = json.loads(raw)
         n = len(data.get("news", []))
         t = len(data.get("themes", []))
-        return A2ATaskResult.ok(
-            task.id,
-            f"Fetched {n} news items, identified {t} themes.",
-            data=data,
+        a2a_result = A2ATaskResult.ok(
+            task.id, f"Fetched {n} news items, identified {t} themes.", data=data,
         )
+        write_audit_event(make_audit_event(
+            agent="NewsSentiment", status="completed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            prompt=_INSTRUCTIONS, input_text=focus, output_text=raw_text,
+            extra={"news_count": n, "theme_count": t},
+        ))
+        log.info("agent.completed", agent="NewsSentiment", correlation_id=correlation_id,
+                 news_count=n, theme_count=t)
+        return a2a_result
     except Exception as e:
-        return A2ATaskResult.fail(task.id, str(e))
+        error_msg = str(e)
+        write_audit_event(make_audit_event(
+            agent="NewsSentiment", status="failed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            extra={"error": error_msg},
+        ))
+        log.error("agent.failed", agent="NewsSentiment", correlation_id=correlation_id, error=error_msg)
+        return A2ATaskResult.fail(task.id, error_msg)
 
 
 # ------------------------------------------------------------------ #
@@ -128,6 +165,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 # ------------------------------------------------------------------ #
 
 app = FastAPI(title="NewsSentiment A2A Agent")
+app.add_middleware(HMACMiddleware)
 
 _WELL_KNOWN = Path(__file__).parent / ".well-known" / "agent.json"
 

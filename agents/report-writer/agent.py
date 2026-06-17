@@ -5,25 +5,31 @@ Include un passaggio di QA interno prima di restituire l'output.
 Mappa report_writer + qa_reviewer di CrewAI.
 """
 import json
-import os
 import sys
+import time
 from datetime import date
 from pathlib import Path
 from typing import Any
 
-import anthropic
+import structlog
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.audit import make_audit_event, write_audit_event
+from shared.demo import is_demo_mode, load_demo_response
+from shared.hmac_auth import HMACMiddleware
+from shared.llm_client import get_llm_client
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+log = structlog.get_logger()
 
-_client = anthropic.Anthropic(api_key=os.getenv("ANTHROPIC_API_KEY"))
+_MODEL_REPORT = "claude-sonnet-4-6"
+_MODEL_QA = "claude-sonnet-4-6"
+
+_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
 # Prompts                                                              #
@@ -120,14 +126,16 @@ Non riprodurre il report. Non correggere testi liberi."""
 # Core logic                                                           #
 # ------------------------------------------------------------------ #
 
-def _call_claude(system: str, user: str, model: str, max_tokens: int) -> str:
+def _call_claude(system: str, user: str, model: str, max_tokens: int) -> tuple[str, dict]:
+    """Returns (text, token_usage) where token_usage = {"input": N, "output": N}."""
     response = _client.messages.create(
         model=model,
         max_tokens=max_tokens,
         system=system,
         messages=[{"role": "user", "content": user}],
     )
-    return response.content[0].text
+    usage = {"input": response.usage.input_tokens, "output": response.usage.output_tokens}
+    return response.content[0].text, usage
 
 
 def _extract_section(text: str, marker: str) -> str:
@@ -156,6 +164,20 @@ def _extract_json(text: str) -> str:
 
 
 async def run_agent(task: A2ATask) -> A2ATaskResult:
+    correlation_id = task.metadata.get("correlation_id")
+    t0 = time.monotonic()
+
+    if is_demo_mode():
+        demo = load_demo_response("report-writer")
+        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        write_audit_event(make_audit_event(
+            agent="ReportWriter", status="demo",
+            correlation_id=correlation_id, model_id=_MODEL_REPORT,
+            duration_ms=int((time.monotonic() - t0) * 1000), demo_mode=True,
+        ))
+        log.info("agent.demo", agent="ReportWriter", correlation_id=correlation_id)
+        return result
+
     input_data: dict[str, Any] = {}
     for part in task.message.parts:
         if hasattr(part, "data"):
@@ -178,11 +200,10 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     )
 
     try:
-        # Step 1 — generate report
-        report_raw = _call_claude(
+        report_raw, usage_report = _call_claude(
             system=_REPORT_SYSTEM.format(today=today),
             user=user_prompt,
-            model="claude-sonnet-4-6",
+            model=_MODEL_REPORT,
             max_tokens=16000,
         )
 
@@ -190,31 +211,47 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         json_raw = _extract_section(report_raw, "=== JSON ===")
         json_clean = _extract_json(json_raw)
 
-        # Step 2 — QA review
         qa_input = f"REPORT DA REVISIONARE:\n{report_raw}"
-        qa_output = _call_claude(
+        qa_output, usage_qa = _call_claude(
             system=_QA_SYSTEM.format(today=today),
             user=qa_input,
-            model="claude-sonnet-4-6",
+            model=_MODEL_QA,
             max_tokens=2048,
         )
 
-        # Parse JSON report
         try:
             report_dict = json.loads(json_clean)
         except json.JSONDecodeError:
             report_dict = {"raw": json_clean}
 
+        total_usage = {
+            "input": usage_report["input"] + usage_qa["input"],
+            "output": usage_report["output"] + usage_qa["output"],
+        }
+        write_audit_event(make_audit_event(
+            agent="ReportWriter", status="completed",
+            correlation_id=correlation_id, model_id=_MODEL_REPORT,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            prompt=_REPORT_SYSTEM, input_text=user_prompt, output_text=report_raw,
+            token_usage=total_usage,
+            extra={"qa_verdict": qa_output[:80]},
+        ))
+        log.info("agent.completed", agent="ReportWriter", correlation_id=correlation_id,
+                 tokens_in=total_usage["input"], tokens_out=total_usage["output"])
+
         return A2ATaskResult.ok(
             task.id,
             sintesi,
-            data={
-                "report": report_dict,
-                "executive_summary": sintesi,
-                "qa_verdict": qa_output,
-            },
+            data={"report": report_dict, "executive_summary": sintesi, "qa_verdict": qa_output},
         )
     except Exception as e:
+        write_audit_event(make_audit_event(
+            agent="ReportWriter", status="failed",
+            correlation_id=correlation_id, model_id=_MODEL_REPORT,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            extra={"error": str(e)},
+        ))
+        log.error("agent.failed", agent="ReportWriter", correlation_id=correlation_id, error=str(e))
         return A2ATaskResult.fail(task.id, str(e))
 
 
@@ -223,6 +260,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 # ------------------------------------------------------------------ #
 
 app = FastAPI(title="ReportWriter A2A Agent")
+app.add_middleware(HMACMiddleware)
 
 _WELL_KNOWN = Path(__file__).parent / ".well-known" / "agent.json"
 

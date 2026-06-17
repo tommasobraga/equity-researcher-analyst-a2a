@@ -1,0 +1,88 @@
+{
+  "message": "Identified 3 equity candidate(s).",
+  "data": {
+    "candidates": [
+      {
+        "ticker": "MSFT",
+        "company": "Microsoft Corporation",
+        "market": "US",
+        "theme_id": "T1",
+        "thesis": "Microsoft è il principale beneficiario della spesa enterprise per AI, con Azure OpenAI Service che rappresenta l'unico percorso enterprise-grade verso i modelli frontier di OpenAI. La crescita di Azure AI del 33% YoY non riflette ancora la piena adozione dei contratti Copilot firmati nel 2025, che iniziano a generare ricavi ricorrenti nel Q3-Q4 2026. Il vantaggio competitivo è difendibile: l'integrazione con Office 365, Teams e Dynamics crea costi di switching proibitivi per le imprese già su M365.",
+        "catalyst": "Risultati Q4 FY2026 (luglio 2026) con primo riconoscimento completo dei ricavi Copilot Enterprise su contratti annuali. Espansione GA del modello o3 su Azure attesa entro agosto 2026.",
+        "news_ids": ["N1", "N9"],
+        "fundamentals": {
+          "price": "449.87",
+          "pe_ttm": "37.8",
+          "eps": "11.90",
+          "52w_range": "344.79-468.35",
+          "analyst_target": "495.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 55,
+          "strong_buy": 30,
+          "buy": 18,
+          "hold": 6,
+          "sell": 1,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.8",
+          "giudizio_sintetico": "Strong Buy — consenso largamente favorevole"
+        }
+      },
+      {
+        "ticker": "UCG.MI",
+        "company": "UniCredit S.p.A.",
+        "market": "EU",
+        "theme_id": "T2",
+        "thesis": "UniCredit è la banca europea meglio posizionata per il ciclo di capital return: CET1 al 16.2% (230bps sopra il requisito regolatorio), guidance alzata a €10.5bn di utile netto, e un multiplo P/E di 7.3x che sconta ancora uno scenario di recessione che non si sta materializzando. Il management ha comunicato un piano di buyback e dividendi che implica un rendimento totale per gli azionisti superiore al 15% nel 2026-2027.",
+        "catalyst": "Approvazione BCE del buyback Q3 2026 (attesa settembre 2026) e rimozione dei buffer di capitale da parte della BCE, già comunicata, che libera ulteriore capitale distribuibile.",
+        "news_ids": ["N3", "N5", "N10"],
+        "fundamentals": {
+          "price": "42.15",
+          "pe_ttm": "7.3",
+          "eps": "5.77",
+          "52w_range": "27.62-48.90",
+          "analyst_target": "52.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 28,
+          "strong_buy": 12,
+          "buy": 10,
+          "hold": 5,
+          "sell": 1,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.9",
+          "giudizio_sintetico": "Buy — consensus positivo con upside al target del 23%"
+        }
+      },
+      {
+        "ticker": "AAPL",
+        "company": "Apple Inc.",
+        "market": "US",
+        "theme_id": "T1",
+        "thesis": "Il via libera DMA per Apple Intelligence nell'UE apre un mercato incrementale di 450M utenti a funzionalità AI premium. Il ciclo di upgrade iPhone guidato dall'AI è nella fase iniziale: solo il 35% degli iPhone attivi è compatibile con Apple Intelligence, creando un potente motore di sostituzione hardware nei prossimi 18-24 mesi. I servizi premium (Apple One, iCloud+) si avvantaggiano dell'ecosistema AI come driver di ARPU.",
+        "catalyst": "Presentazione iPhone 18 (settembre 2026) con Apple Intelligence di seconda generazione e integrazione Claude/GPT on-device. Lancio effettivo in Europa atteso Q4 2026.",
+        "news_ids": ["N2", "N6"],
+        "fundamentals": {
+          "price": "213.49",
+          "pe_ttm": "34.2",
+          "eps": "6.43",
+          "52w_range": "164.08-237.23",
+          "analyst_target": "228.50"
+        },
+        "analyst_consensus": {
+          "total_analysts": 42,
+          "strong_buy": 18,
+          "buy": 14,
+          "hold": 8,
+          "sell": 2,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "2.1",
+          "giudizio_sintetico": "Buy — consensus positivo, upside moderato al target"
+        }
+      }
+    ]
+  }
+}

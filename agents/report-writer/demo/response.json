@@ -1,0 +1,183 @@
+{
+  "message": "Il report identifica 3 candidati equity (MSFT, UCG.MI, AAPL) su due temi principali: AI Infrastructure & Enterprise Adoption e European Banking Capital Returns. Microsoft e UniCredit presentano il profilo rischio/rendimento più favorevole con scoring 40/50, Apple segue a 33/50 con qualità media per dipendenza dal ciclo hardware. Tutti i candidati hanno consensus Buy con upside al target tra il 7% (AAPL) e il 23% (UCG.MI).",
+  "data": {
+    "executive_summary": "Il report identifica 3 candidati equity (MSFT, UCG.MI, AAPL) su due temi principali: AI Infrastructure & Enterprise Adoption e European Banking Capital Returns. Microsoft e UniCredit presentano il profilo rischio/rendimento più favorevole con scoring 40/50, Apple segue a 33/50 con qualità media per dipendenza dal ciclo hardware. Tutti i candidati hanno consensus Buy con upside al target tra il 7% (AAPL) e il 23% (UCG.MI).",
+    "qa_verdict": "QA: APPROVATO — Schema JSON conforme, tutti gli scoring verificati (MSFT 40/50, UCG 40/50, AAPL 33/50), nessuna direttiva buy/sell esplicita, citazioni notizie presenti per ogni affermazione. Testo in italiano corretto.",
+    "report": {
+      "data_analisi": "2026-06-17",
+      "universo": "US e EU equities",
+      "temi": [
+        {
+          "tema_id": "T1",
+          "titolo": "AI Infrastructure & Enterprise Adoption",
+          "perche_ora": "La ripresa del capex hyperscaler dopo la normalizzazione dell'offerta Blackwell e l'entrata in vigore dell'EU AI Act creano una domanda simultanea per infrastruttura AI e piattaforme enterprise compliant.",
+          "evidenze": ["N1", "N4", "N6", "N9"],
+          "indicatori_da_monitorare": [
+            "Crescita trimestrale di Azure, AWS e GCP nel segmento AI",
+            "Booking ASML EUV per TSMC N2 e Intel 18A",
+            "Spesa enterprise EU AI Act compliance (Gartner tracker)"
+          ]
+        },
+        {
+          "tema_id": "T2",
+          "titolo": "European Banking Capital Returns",
+          "perche_ora": "La traiettoria di tagli BCE combinata con la rimozione dei buffer di capitale consente rendimenti record per gli azionisti delle banche europee che trattano ancora a sconto rispetto ai peer US.",
+          "evidenze": ["N3", "N5", "N8", "N10"],
+          "indicatori_da_monitorare": [
+            "Calendario decisioni BCE sui piani di capitale delle banche (settembre 2026)",
+            "NPL ratio sistema bancario EU (EBA, trimestrale)",
+            "Differenziale tasso BCE vs Fed sui NIM delle banche europee"
+          ]
+        }
+      ],
+      "candidati": [
+        {
+          "rank": 1,
+          "ticker": "MSFT",
+          "azienda": "Microsoft Corporation",
+          "mercato": "US",
+          "tema": "T1",
+          "tesi": "Microsoft è il principale beneficiario della spesa enterprise per AI grazie ad Azure OpenAI Service. I ricavi Copilot Enterprise, ancora in fase di rampa, iniziano a generare contributi significativi dal Q3-Q4 2026 su contratti annuali già firmati (N1, N9). L'integrazione profonda con M365 crea costi di switching che rendono la posizione difendibile nel medio termine.",
+          "catalizzatore": "Earnings Q4 FY2026 (luglio 2026) con primo riconoscimento completo dei ricavi Copilot. GA del modello o3 su Azure attesa entro agosto 2026.",
+          "orizzonte_settimane": "16-24 settimane",
+          "scenari": {
+            "base": "Azure AI cresce al 30-35% YoY, ricavi Copilot raggiungono €8bn ARR entro dicembre 2026, titolo converge verso il target a 495 USD.",
+            "bull": "Adozione enterprise Copilot supera le attese, Azure supera AWS in quota mercato AI, titolo rompe 500 USD entro Q1 2027.",
+            "bear": "Rallentamento spesa IT enterprise per recessione soft, competizione Google Workspace con Gemini erode quota, titolo ritesta 380 USD."
+          },
+          "rischi": {
+            "macro": "Recessione US con contrazione della spesa IT enterprise sui budget cloud e SaaS.",
+            "settore": "Escalation competitiva di Google Cloud con Gemini Ultra integrato in Workspace a prezzi aggressivi.",
+            "azienda": "Antitrust scrutiny sull'integrazione esclusiva OpenAI in Azure potrebbe forzare unbundling dei servizi AI.",
+            "regolatorio": "EU AI Act richiede conformity assessment per Azure OpenAI su use case ad alto rischio.",
+            "valutazione": "P/E 37.8x lascia poco margine di errore su earnings; miss di anche il 5% sulla crescita Azure genera de-rating significativo."
+          },
+          "trigger_falsificazione": "Se la crescita di Azure scende sotto il 25% YoY per due trimestri consecutivi, la tesi di dominant AI platform non regge.",
+          "prossime_verifiche": [
+            "Earnings Q4 FY2026 (luglio 2026) — crescita Azure e margine operativo cloud",
+            "Annuncio contratti Copilot Enterprise Q3 2026",
+            "Quota di mercato AI cloud (Synergy Research, agosto 2026)"
+          ],
+          "evidenze_citate": ["N1", "N9", "N4"],
+          "rating_qualita": "alta",
+          "scoring": {
+            "forza_catalizzatore": 9,
+            "fit_orizzonte": 8,
+            "asimmetria_narrativa": 8,
+            "qualita_evidenze": 9,
+            "rischio_crowding": 6,
+            "totale": 40
+          },
+          "consenso_analisti": {
+            "totale_analisti": 55,
+            "strong_buy": 30,
+            "buy": 18,
+            "hold": 6,
+            "sell": 1,
+            "strong_sell": 0,
+            "giudizio_sintetico": "Strong Buy — consenso largamente favorevole",
+            "target_medio": "495.00 USD"
+          }
+        },
+        {
+          "rank": 2,
+          "ticker": "UCG.MI",
+          "azienda": "UniCredit S.p.A.",
+          "mercato": "EU",
+          "tema": "T2",
+          "tesi": "UniCredit è la banca europea meglio posizionata per il ciclo di capital return: CET1 al 16.2% (230bps sopra il requisito regolatorio), guidance alzata a €10.5bn (N5), e P/E 7.3x che incorpora ancora uno scenario avverso non materializzato. Il piano di buyback e dividendi implica un rendimento totale per gli azionisti superiore al 15% nel biennio 2026-2027 (N10).",
+          "catalizzatore": "Approvazione BCE del buyback Q3 2026 (settembre 2026) e rimozione dei buffer di capitale già comunicata dalla BCE (N3).",
+          "orizzonte_settimane": "12-20 settimane",
+          "scenari": {
+            "base": "Buyback BCE approvato a settembre, rendimento totale azionisti 15%, titolo converge a 50 EUR entro fine 2026.",
+            "bull": "Guidance alzata ulteriormente a €11bn, tagli BCE accelerano oltre le attese, titolo rompe i massimi a 52 EUR verso 60 EUR.",
+            "bear": "Deterioramento credito Eastern Europe per spillover conflitto, accantonamenti straordinari comprimono l'utile, titolo ritesta 35 EUR."
+          },
+          "rischi": {
+            "macro": "Recessione europea con aumento NPL, specialmente in Germania e nell'area CEE.",
+            "settore": "Compressione NIM se i tagli BCE sono più rapidi del previsto e la curva si inverte.",
+            "azienda": "Esposizione a Commerzbank (19.9%) crea rischio di acquisizione ostile con impiego di capitale non pianificato.",
+            "regolatorio": "BCE potrebbe bloccare o ridurre il buyback se emergono rischi sistemici imprevisti.",
+            "valutazione": "Il re-rating da 7.3x a 10x P/E richiede continuità degli utili elevati; qualsiasi warning profit azzera il premio."
+          },
+          "trigger_falsificazione": "Se la BCE blocca il buyback o UniCredit lancia un'OPA su Commerzbank a premio, la tesi capital return decade completamente.",
+          "prossime_verifiche": [
+            "Decisione BCE sul piano di capitale UCG (settembre 2026)",
+            "Update NPL ratio Q2 2026 (agosto 2026)",
+            "Sviluppi sulla posizione in Commerzbank"
+          ],
+          "evidenze_citate": ["N3", "N5", "N8", "N10"],
+          "rating_qualita": "alta",
+          "scoring": {
+            "forza_catalizzatore": 8,
+            "fit_orizzonte": 9,
+            "asimmetria_narrativa": 9,
+            "qualita_evidenze": 7,
+            "rischio_crowding": 7,
+            "totale": 40
+          },
+          "consenso_analisti": {
+            "totale_analisti": 28,
+            "strong_buy": 12,
+            "buy": 10,
+            "hold": 5,
+            "sell": 1,
+            "strong_sell": 0,
+            "giudizio_sintetico": "Buy — consensus positivo con upside al target del 23%",
+            "target_medio": "52.00 EUR"
+          }
+        },
+        {
+          "rank": 3,
+          "ticker": "AAPL",
+          "azienda": "Apple Inc.",
+          "mercato": "US",
+          "tema": "T1",
+          "tesi": "Il via libera DMA per Apple Intelligence nell'UE (N2) apre 450M utenti a funzionalità AI premium. Il ciclo di upgrade iPhone guidato dall'AI è nella fase iniziale: solo il 35% degli iPhone attivi è compatibile, creando un motore di sostituzione hardware nei prossimi 18-24 mesi. L'EU AI Act (N6) posiziona Apple come vendor compliant per natura grazie all'on-device processing.",
+          "catalizzatore": "Presentazione iPhone 18 (settembre 2026) con Apple Intelligence v2. Lancio effettivo in Europa atteso Q4 2026.",
+          "orizzonte_settimane": "20-32 settimane",
+          "scenari": {
+            "base": "iPhone 18 catalizza ciclo upgrade moderato, EPS FY2027 a 7.20 USD, titolo sale verso 230 USD.",
+            "bull": "Penetrazione Apple Intelligence in EU supera il 50% entro Q1 2027, ARPU servizi sale a 28 USD, titolo verso 270 USD.",
+            "bear": "Ciclo upgrade delude per mancanza di killer feature percepita, crescita servizi rallenta sotto il 10%, titolo ritesta 180 USD."
+          },
+          "rischi": {
+            "macro": "Rallentamento consumi premium in US e Cina comprime volumi hardware.",
+            "settore": "Android AI (Google Pixel + Gemini Nano) con prezzi aggressivi erode il vantaggio differenziale.",
+            "azienda": "Dipendenza da TSMC per chip A-series: qualsiasi disruption produttiva ritarda il lancio iPhone 18.",
+            "regolatorio": "DMA enforcement aggressivo potrebbe forzare ulteriore apertura App Store, comprimendo i margini Services.",
+            "valutazione": "P/E 34.2x è elevato per un'azienda hardware con crescita revenue single-digit."
+          },
+          "trigger_falsificazione": "Se le prevendite iPhone 18 nei primi 72 ore sono inferiori del 15% all'iPhone 17, il ciclo upgrade AI non si è materializzato.",
+          "prossime_verifiche": [
+            "WWDC 2026 (giugno 2026) — annunci Apple Intelligence v2",
+            "Dati supply chain iPhone 18 (agosto-settembre 2026)",
+            "Earnings Q3 FY2026 (agosto 2026) — crescita servizi"
+          ],
+          "evidenze_citate": ["N2", "N6"],
+          "rating_qualita": "media",
+          "scoring": {
+            "forza_catalizzatore": 7,
+            "fit_orizzonte": 7,
+            "asimmetria_narrativa": 6,
+            "qualita_evidenze": 8,
+            "rischio_crowding": 5,
+            "totale": 33
+          },
+          "consenso_analisti": {
+            "totale_analisti": 42,
+            "strong_buy": 18,
+            "buy": 14,
+            "hold": 8,
+            "sell": 2,
+            "strong_sell": 0,
+            "giudizio_sintetico": "Buy — consensus positivo, upside moderato al target",
+            "target_medio": "228.50 USD"
+          }
+        }
+      ],
+      "candidati_esclusi": [],
+      "nota_metodologica": "DEMO MODE — dati fittizi generati staticamente. Nessuna chiamata LLM effettuata. Fonte dati: demo/response.json. In produzione: fondamentali da provider certificato (Refinitiv/Bloomberg), news da feed autorizzati, modelli via cloud provider approvato Accenture (Bedrock/Vertex/Azure AI Foundry)."
+    }
+  }
+}

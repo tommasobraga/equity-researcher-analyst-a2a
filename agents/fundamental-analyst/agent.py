@@ -1,77 +1,68 @@
-"""Fundamental Analyst agent — BeeAI ReActAgent + FastAPI, porta 8003.
+"""Fundamental Analyst agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8003.
 
 Riceve news/temi dal News & Sentiment e fondamentali dal Data Collector,
-identifica fino a 5 candidati equity con tesi d'investimento specifica.
-Mappa theme_analyst + stock_screener di CrewAI.
+identifica fino a 3 candidati equity con tesi d'investimento specifica.
+Sostituisce BeeAI ReActAgent con react_loop nativo Anthropic SDK.
 """
 import asyncio
 import json
-import os
 import sys
+import time
 from pathlib import Path
 from typing import Any
 
+import structlog
 import uvicorn
-from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from beeai_framework.adapters.anthropic.backend.chat import AnthropicChatModel
-from beeai_framework.agents.react import ReActAgent
-from beeai_framework.memory import UnconstrainedMemory
-from beeai_framework.emitter.emitter import Emitter
-from beeai_framework.tools.tool import StringToolOutput, Tool
-from pydantic import BaseModel
-
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
+from shared.audit import make_audit_event, write_audit_event
+from shared.demo import is_demo_mode, load_demo_response
+from shared.hmac_auth import HMACMiddleware
+from shared.llm_client import get_llm_client
+from shared.react import react_loop
 from shared.tools.yfinance_tool import get_stock_fundamentals_text
 
-load_dotenv(Path(__file__).parent.parent.parent / ".env")
+log = structlog.get_logger()
+
+_MODEL_ID = "claude-sonnet-4-6"
+_client = get_llm_client()
 
 # ------------------------------------------------------------------ #
-# Tool                                                                 #
+# Tool definition + executor                                           #
 # ------------------------------------------------------------------ #
 
-class FetchFundamentalsInput(BaseModel):
-    ticker: str
+_TOOLS = [
+    {
+        "name": "fetch_fundamentals",
+        "description": (
+            "Fetch real fundamental data for a stock ticker from yfinance. "
+            "Use this for each candidate to get price, P/E, EPS, 52-week range, "
+            "analyst target and consensus. Input: ticker symbol, e.g. AAPL, UCG.MI, ASML.AS"
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string", "description": "Stock ticker symbol"}
+            },
+            "required": ["ticker"],
+        },
+    }
+]
 
 
-class FetchFundamentalsTool(Tool[FetchFundamentalsInput, None, StringToolOutput]):
-    name = "fetch_fundamentals"
-    description = (
-        "Fetch real fundamental data for a stock ticker from yfinance. "
-        "Input: ticker symbol, e.g. AAPL, UCG.MI, ASML.AS"
-    )
-    input_schema = FetchFundamentalsInput
-
-    def _create_emitter(self) -> Emitter:
-        return Emitter.root().child(namespace=["tool", "fetch_fundamentals"], creator=self)
-
-    async def _run(self, input: FetchFundamentalsInput, options=None, context=None) -> StringToolOutput:  # noqa: E501
-        result = await asyncio.to_thread(get_stock_fundamentals_text, input.ticker)
-        return StringToolOutput(result)
+async def _fetch_fundamentals(input: dict) -> str:
+    return await asyncio.to_thread(get_stock_fundamentals_text, input["ticker"])
 
 
-# ------------------------------------------------------------------ #
-# Agent factory                                                        #
-# ------------------------------------------------------------------ #
-
-def _make_agent() -> ReActAgent:
-    model = AnthropicChatModel(
-        model_id="claude-haiku-4-5-20251001",
-        api_key=os.getenv("ANTHROPIC_API_KEY"),
-    )
-    return ReActAgent(
-        llm=model,
-        tools=[FetchFundamentalsTool()],
-        memory=UnconstrainedMemory(),
-    )
+_EXECUTORS = {"fetch_fundamentals": _fetch_fundamentals}
 
 
 # ------------------------------------------------------------------ #
-# Core logic                                                           #
+# Prompt                                                               #
 # ------------------------------------------------------------------ #
 
 _INSTRUCTIONS = """You are a fundamental equity analyst for US and EU markets (UK/LSE excluded).
@@ -110,6 +101,10 @@ Return ONLY a JSON array (no prose, no markdown fences):
 }]"""
 
 
+# ------------------------------------------------------------------ #
+# Core logic                                                           #
+# ------------------------------------------------------------------ #
+
 def _extract_json_array(text: str) -> str:
     text = text.strip()
     if text.startswith("```"):
@@ -124,7 +119,20 @@ def _extract_json_array(text: str) -> str:
 
 
 async def run_agent(task: A2ATask) -> A2ATaskResult:
-    # Extract structured input from message parts
+    correlation_id = task.metadata.get("correlation_id")
+    t0 = time.monotonic()
+
+    if is_demo_mode():
+        demo = load_demo_response("fundamental-analyst")
+        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        write_audit_event(make_audit_event(
+            agent="FundamentalAnalyst", status="demo",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000), demo_mode=True,
+        ))
+        log.info("agent.demo", agent="FundamentalAnalyst", correlation_id=correlation_id)
+        return result
+
     input_data: dict[str, Any] = {}
     for part in task.message.parts:
         if hasattr(part, "data"):
@@ -134,41 +142,54 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     themes_text = json.dumps(input_data.get("themes", []), ensure_ascii=False)
     fundamentals_hint = json.dumps(input_data.get("fundamentals", []), ensure_ascii=False)
 
-    prompt = (
-        f"{_INSTRUCTIONS}\n\n"
+    user_prompt = (
         f"NEWS ITEMS:\n{news_text}\n\n"
         f"MARKET THEMES:\n{themes_text}\n\n"
-        f"PRE-FETCHED FUNDAMENTALS (use as starting point, verify with tool if needed):\n{fundamentals_hint}\n\n"  # noqa: E501
+        f"PRE-FETCHED FUNDAMENTALS (use as starting point, verify with tool if needed):\n{fundamentals_hint}\n\n"
         "Now identify the best candidates and return the JSON array."
     )
 
     try:
-        agent = _make_agent()
-        response = await agent.run(prompt)
-        # Extract final_answer from the last iteration that has one
-        raw_text = ""
-        for iteration in reversed(response.iterations):
-            if iteration.state.final_answer:
-                raw_text = iteration.state.final_answer
-                break
+        raw_text = await react_loop(
+            client=_client,
+            system=_INSTRUCTIONS,
+            user_prompt=user_prompt,
+            tools=_TOOLS,
+            executors=_EXECUTORS,
+            model=_MODEL_ID,
+        )
         output = _extract_json_array(raw_text)
         try:
             candidates = json.loads(output)
-            return A2ATaskResult.ok(
+            a2a_result = A2ATaskResult.ok(
                 task.id,
                 f"Identified {len(candidates)} equity candidate(s).",
                 data={"candidates": candidates},
             )
         except json.JSONDecodeError:
-            return A2ATaskResult.ok(task.id, raw_text)
+            a2a_result = A2ATaskResult.ok(task.id, raw_text)
+            candidates = []
+        write_audit_event(make_audit_event(
+            agent="FundamentalAnalyst", status="completed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            prompt=_INSTRUCTIONS, input_text=user_prompt, output_text=raw_text,
+            extra={"candidate_count": len(candidates)},
+        ))
+        log.info("agent.completed", agent="FundamentalAnalyst", correlation_id=correlation_id,
+                 candidate_count=len(candidates))
+        return a2a_result
     except Exception as e:
-        import traceback
-        traceback.print_exc()
-        causes, current = [], e
-        while current:
-            causes.append(str(current))
-            current = getattr(current, "__cause__", None) or getattr(current, "__context__", None)
-        return A2ATaskResult.fail(task.id, " | ".join(causes))
+        error_msg = str(e)
+        write_audit_event(make_audit_event(
+            agent="FundamentalAnalyst", status="failed",
+            correlation_id=correlation_id, model_id=_MODEL_ID,
+            duration_ms=int((time.monotonic() - t0) * 1000),
+            extra={"error": error_msg},
+        ))
+        log.error("agent.failed", agent="FundamentalAnalyst", correlation_id=correlation_id,
+                  error=error_msg)
+        return A2ATaskResult.fail(task.id, error_msg)
 
 
 # ------------------------------------------------------------------ #
@@ -176,6 +197,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 # ------------------------------------------------------------------ #
 
 app = FastAPI(title="FundamentalAnalyst A2A Agent")
+app.add_middleware(HMACMiddleware)
 
 _WELL_KNOWN = Path(__file__).parent / ".well-known" / "agent.json"
 

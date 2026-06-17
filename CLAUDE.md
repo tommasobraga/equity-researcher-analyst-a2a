@@ -33,17 +33,17 @@ curl http://localhost:8001/.well-known/agent.json
 
 ## Architecture
 
-This is an **A2A (Agent-to-Agent)** multi-agent equity research system. The CrewAI pipeline was decomposed into 5 independent FastAPI services that communicate via **JSON-RPC 2.0 over HTTP**. Each agent uses a different AI framework — intentionally, for pedagogical/architectural comparison purposes.
+This is an **A2A (Agent-to-Agent)** multi-agent equity research system. The CrewAI pipeline was decomposed into 5 independent FastAPI services that communicate via **JSON-RPC 2.0 over HTTP**.
 
 ### Pipeline (sequential, orchestrated)
 
 ```
 Orchestrator
-  → [1] DataCollector     :8001  OpenAI Agents SDK   fetch fundamentals from yfinance
-  → [2] NewsSentiment     :8002  Smolagents          RSS feeds → JSON news + themes
-  → [3] FundamentalAnalyst:8003  BeeAI ReActAgent    news+themes+fundamentals → candidates
-  → [4] RiskAssessor      :8004  BeeAI ReActAgent    candidates → scoring + scenarios
-  → [5] ReportWriter      :8005  Anthropic API direct final Italian report + QA pass
+  → [1] DataCollector     :8001  Anthropic SDK ReAct fetch fundamentals from yfinance
+  → [2] NewsSentiment     :8002  Anthropic SDK ReAct RSS feeds → JSON news + themes
+  → [3] FundamentalAnalyst:8003  Anthropic SDK ReAct news+themes+fundamentals → candidates
+  → [4] RiskAssessor      :8004  Anthropic SDK ReAct candidates → scoring + scenarios
+  → [5] ReportWriter      :8005  Anthropic SDK direct final Italian report + QA pass
 ```
 
 The orchestrator (`orchestrator/main.py`) uses **LangGraph** (`StateGraph`). Each pipeline step is a node; `PipelineState` (TypedDict) carries accumulated data across nodes. The graph is compiled once at module load (`_build_graph()`) and invoked with `_graph.ainvoke(initial_state)`. Adding conditional edges, parallel branches, or retry loops only requires modifying `_build_graph()` — node logic stays untouched.
@@ -69,10 +69,10 @@ Every agent follows the same pattern:
 
 | Agent | Framework | Model |
 |---|---|---|
-| DataCollector | OpenAI Agents SDK (LitellmModel) | `claude-haiku-4-5-20251001` |
-| NewsSentiment | Smolagents (LiteLLMModel) | `claude-haiku-4-5-20251001` |
-| FundamentalAnalyst | BeeAI (AnthropicChatModel) | `claude-haiku-4-5-20251001` |
-| RiskAssessor | BeeAI (AnthropicChatModel) | `claude-haiku-4-5-20251001` |
+| DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` |
+| NewsSentiment | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` |
+| FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` |
+| RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` |
 | ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report) + `claude-sonnet-4-6` (QA) |
 
 ### Shared tools
@@ -80,9 +80,19 @@ Every agent follows the same pattern:
 - `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. Wraps yfinance with a 15s per-ticker timeout via `ThreadPoolExecutor`.
 - `shared/tools/rss_feed.py` — `fetch_rss_news()` reads 6 RSS feeds (Reuters, Yahoo Finance, MarketWatch, Investing.com × 2) with retry logic.
 
-### BeeAI model constraint
+### ReAct loop nativo
 
-BeeAI's `ReActAgent` uses **assistant message prefill** internally. Sonnet 4.6 does not support prefill (`invalid_request_error`), so FundamentalAnalyst and RiskAssessor must stay on `claude-haiku-4-5-20251001` until BeeAI adds a non-prefill runner for Claude 4.x.
+Tutti e 4 gli agenti con tool use (DataCollector, NewsSentiment, FundamentalAnalyst, RiskAssessor) implementano il pattern ReAct (Reason → Act → Observe) direttamente con l'Anthropic SDK tool_use, senza framework intermedi. La logica è in `shared/react.py` (`react_loop()`). Ogni `stop_reason="tool_use"` è l'ACT, l'esecuzione del tool è l'OBSERVE, `stop_reason="end_turn"` è la risposta finale. ReportWriter non usa tool use — due chiamate dirette sequenziali (report + QA).
+
+### Shared utilities
+
+- `shared/llm_client.py` — `get_llm_client()`: factory singleton per il client LLM; legge `LLM_PROVIDER` (local|bedrock|vertex|azure)
+- `shared/react.py` — `react_loop()`: ReAct loop nativo Anthropic SDK, usato da tutti gli agenti con tool use
+- `shared/audit.py` — `write_audit_event()` / `make_audit_event()`: audit trail JSONL append-only
+- `shared/demo.py` — `is_demo_mode()` / `load_demo_response()`: demo mode senza chiamate LLM
+- `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: autenticazione inter-agente
+- `shared/secrets.py` — `get_secret()`: factory secret provider-agnostic (local/azure/aws)
+- `shared/sanitize.py` — `sanitize_rss_item()`: sanitizzazione input RSS anti prompt-injection
 
 ### Domain constraints (hardcoded in agent prompts)
 
@@ -101,10 +111,32 @@ The JSON schema embedded in `_REPORT_SCHEMA` defines the canonical output struct
 
 ## Environment
 
-Requires `ANTHROPIC_API_KEY` in `.env` at project root. No other API keys needed for the default configuration (yfinance and RSS feeds require no keys).
+Non esiste un file `.env` — le variabili d'ambiente sono iniettate dalla piattaforma (ECS, Lambda) o settate nella shell in locale. Non usare `ANTHROPIC_API_KEY` diretta: pattern non approvato per workload Accenture.
 
-## Roadmap
+### Sviluppo locale (demo mode — nessuna chiamata LLM)
 
-- **v2 orchestrator**: migrate to LangGraph when the agent graph justifies it
-- **Model phase 2**: Gemini Flash for NewsSentiment (add `GOOGLE_API_KEY` to `.env`, change model_id only)
-- **Model phase 3**: Ollama local models via OpenAI-compatible endpoint (`http://localhost:11434/v1`)
+```powershell
+$env:DEMO_MODE = "true"
+uv run python agents/data-collector/agent.py
+```
+
+### Produzione (AWS Bedrock)
+
+```
+DEMO_MODE=false
+LLM_PROVIDER=bedrock
+AWS_REGION=eu-west-1        # region assegnata dal ticket ServiceNow
+```
+Credenziali gestite dal ruolo IAM sulla risorsa compute — nessun segreto in config.
+
+### Variabili disponibili
+
+| Variabile | Valori | Default | Note |
+|---|---|---|---|
+| `DEMO_MODE` | `true\|false` | `false` | `true` = nessuna chiamata LLM, dati da `agents/*/demo/response.json` |
+| `LLM_PROVIDER` | `local\|bedrock\|vertex\|azure` | `local` | `local` richiede `ANTHROPIC_API_KEY` (solo test personali) |
+| `AWS_REGION` | es. `eu-west-1` | `us-east-1` | solo se `LLM_PROVIDER=bedrock` |
+| `VERTEX_REGION` | es. `europe-west4` | `us-east5` | solo se `LLM_PROVIDER=vertex` |
+| `VERTEX_PROJECT_ID` | GCP project ID | — | obbligatorio se `LLM_PROVIDER=vertex` |
+| `A2A_SHARED_SECRET` | hex 32 byte | — | HMAC inter-agente; se assente il middleware è disabilitato |
+| `SECRET_PROVIDER` | `local\|azure\|aws` | `local` | provider per `shared/secrets.py` |

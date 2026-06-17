@@ -13,27 +13,29 @@ dependencies = [
     "uvicorn[standard]>=0.30.0",
     # Anthropic — Orchestrator, Report Writer, shared
     "anthropic>=0.40.0",
-    # OpenAI Agents SDK — Data Collector
-    "openai-agents>=0.0.7",
-    # Smolagents — News & Sentiment
-    "smolagents>=1.0.0",
-    # BeeAI — Fundamental Analyst, Risk Assessor
-    "beeai-framework>=0.1.0",
     # Financial data tools
     "feedparser>=6.0.12",
     "yfinance>=1.2.0",
     # Orchestrator
     "langgraph>=0.2.0",
+    "langgraph-checkpoint-sqlite>=2.0.0",
+    "tenacity>=8.2.0",
     # Shared utilities
+    "structlog>=24.0.0",
+    "bleach>=6.0.0",
     "pydantic>=2.0.0",
     "httpx>=0.27.0",
-    "python-dotenv>=1.0.0",
     "rich>=13.0.0",
     "jinja2>=3.0.0",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["shared", "orchestrator", "agents"]
+
+[project.optional-dependencies]
+# Installare in base al cloud provider scelto (SECRET_PROVIDER env var)
+azure = ["azure-identity>=1.15.0", "azure-keyvault-secrets>=4.8.0"]
+aws   = ["boto3>=1.34.0"]
 
 [dependency-groups]
 dev = [

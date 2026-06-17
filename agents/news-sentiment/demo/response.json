@@ -1,0 +1,87 @@
+{
+  "message": "Fetched 10 news items, identified 3 themes.",
+  "data": {
+    "news": [
+      {
+        "id": "N1",
+        "source": "Reuters Markets",
+        "headline": "Microsoft Azure AI revenue surges 33% as enterprise adoption accelerates",
+        "summary": "Microsoft reported Azure cloud segment growth driven by AI workloads. Enterprise customers are signing multi-year contracts for Copilot and OpenAI integrations."
+      },
+      {
+        "id": "N2",
+        "source": "Yahoo Finance",
+        "headline": "Apple Intelligence rollout expands to EU markets after regulatory clearance",
+        "summary": "Apple received DMA compliance clearance enabling full Apple Intelligence deployment in Europe. On-device AI features now available to 450M EU iPhone users."
+      },
+      {
+        "id": "N3",
+        "source": "Reuters Markets",
+        "headline": "ECB holds rates steady, signals two cuts in H2 2026 as inflation eases",
+        "summary": "The European Central Bank kept rates at 2.50% citing easing inflation. Markets price 50bps of cuts by year-end, boosting European bank NIM outlook."
+      },
+      {
+        "id": "N4",
+        "source": "MarketWatch",
+        "headline": "NVIDIA Blackwell GPU supply constraints ease, hyperscalers resume capex expansion",
+        "summary": "Supply chain data shows NVIDIA Blackwell production ramp normalizing. AWS, Azure and Google Cloud confirmed accelerated GPU infrastructure buildout for H2 2026."
+      },
+      {
+        "id": "N5",
+        "source": "Reuters Markets",
+        "headline": "UniCredit raises FY2026 net profit guidance to €10.5bn on strong trading income",
+        "summary": "UniCredit upgraded full-year guidance above consensus driven by capital markets activity and Eastern European retail banking growth. CET1 ratio remains at 16.2%."
+      },
+      {
+        "id": "N6",
+        "source": "Yahoo Finance",
+        "headline": "EU AI Act enforcement begins: enterprise compliance spending to reach €12bn",
+        "summary": "With EU AI Act provisions entering force, enterprises face mandatory conformity assessments for high-risk AI systems. Technology vendors positioning as compliance enablers."
+      },
+      {
+        "id": "N7",
+        "source": "MarketWatch",
+        "headline": "Semiconductor equipment orders hit record Q2 2026 as TSMC N2 ramp accelerates",
+        "summary": "SEMI data shows wafer fab equipment bookings at record levels. TSMC N2 node volume production driving demand for ASML EUV systems and Applied Materials deposition tools."
+      },
+      {
+        "id": "N8",
+        "source": "Reuters Markets",
+        "headline": "Investment banking M&A pipeline strongest since 2021 as PE deployment resumes",
+        "summary": "Global M&A advisory fees up 28% YoY with technology and financial services leading deal volumes. Private equity firms accelerating exits after two years of restricted activity."
+      },
+      {
+        "id": "N9",
+        "source": "Yahoo Finance",
+        "headline": "Microsoft Azure OpenAI Service adds real-time reasoning models for enterprise",
+        "summary": "Microsoft announced general availability of o3 reasoning model on Azure. Early adopters in financial services report 40% reduction in analysis workflow time."
+      },
+      {
+        "id": "N10",
+        "source": "MarketWatch",
+        "headline": "European banking sector buybacks accelerate as ECB removes capital buffer requirements",
+        "summary": "ECB removed remaining countercyclical capital buffer requirements for EU banks. Analysts expect €30bn in additional shareholder returns across European banking sector in 2026."
+      }
+    ],
+    "themes": [
+      {
+        "id": "T1",
+        "title": "AI Infrastructure & Enterprise Adoption",
+        "why_now": "Hyperscaler capex recovery and EU AI Act compliance spending create simultaneous demand-pull for AI infrastructure hardware and enterprise software platforms.",
+        "news_ids": ["N1", "N4", "N6", "N9"]
+      },
+      {
+        "id": "T2",
+        "title": "European Banking Capital Returns",
+        "why_now": "ECB rate cut trajectory combined with removal of capital buffers enables record shareholder returns from European banks trading at deep discounts to US peers.",
+        "news_ids": ["N3", "N5", "N8", "N10"]
+      },
+      {
+        "id": "T3",
+        "title": "Semiconductor Supercycle — Advanced Node Ramp",
+        "why_now": "TSMC N2 production ramp and Blackwell supply normalization mark the beginning of the next semiconductor capex cycle with equipment makers as primary beneficiaries.",
+        "news_ids": ["N4", "N7"]
+      }
+    ]
+  }
+}

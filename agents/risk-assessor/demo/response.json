@@ -1,0 +1,180 @@
+{
+  "message": "Risk assessment complete for 3 candidate(s).",
+  "data": {
+    "risk_assessment": [
+      {
+        "ticker": "MSFT",
+        "scenarios": {
+          "base": "Azure AI cresce al 30-35% YoY, ricavi Copilot raggiungono €8bn ARR entro dicembre 2026, titolo converge verso il target a 495 USD.",
+          "bull": "Adozione enterprise Copilot supera le attese, Azure supera AWS in quota mercato AI, titolo rompe 500 USD entro Q1 2027.",
+          "bear": "Rallentamento spesa IT enterprise per recessione soft, competizione Google Workspace con Gemini erode quota, titolo ritesta 380 USD."
+        },
+        "risks": {
+          "macro": "Recessione US con contrazione della spesa IT enterprise sui budget cloud e SaaS.",
+          "sector": "Escalation competitiva di Google Cloud con Gemini Ultra integrato in Workspace a prezzi aggressivi.",
+          "company": "Antitrust scrutiny sull'integrazione esclusiva OpenAI in Azure potrebbe forzare unbundling dei servizi AI.",
+          "regulatory": "EU AI Act richiede conformity assessment per Azure OpenAI su use case ad alto rischio, aumentando i costi di compliance per i clienti.",
+          "valuation": "P/E 37.8x lascia poco margine di errore su earnings; miss di anche 5% sulla crescita Azure genera de-rating significativo."
+        },
+        "falsification": "Se la crescita di Azure scende sotto il 25% YoY per due trimestri consecutivi, la tesi di dominant AI platform non regge.",
+        "next_checks": [
+          "Earnings Q4 FY2026 (luglio 2026) — crescita Azure e margine operativo cloud",
+          "Annuncio contratti Copilot Enterprise Q3 2026",
+          "Quota di mercato AI cloud (Synergy Research, agosto 2026)"
+        ],
+        "quality": "alta",
+        "scoring": {
+          "forza_catalizzatore": 9,
+          "fit_orizzonte": 8,
+          "asimmetria_narrativa": 8,
+          "qualita_evidenze": 9,
+          "rischio_crowding": 6,
+          "totale": 40
+        }
+      },
+      {
+        "ticker": "UCG.MI",
+        "scenarios": {
+          "base": "Buyback BCE approvato a settembre, rendimento totale azionisti 15%, titolo converge a 50 EUR entro fine 2026.",
+          "bull": "Guidance alzata ulteriormente a €11bn, tagli BCE accelerano oltre le attese, titolo rompe i massimi a 52 EUR e rievaluta verso 60 EUR.",
+          "bear": "Deterioramento credito Eastern Europe per spillover conflitto russo-ucraino, accantonamenti straordinari comprimono l'utile, titolo ritesta 35 EUR."
+        },
+        "risks": {
+          "macro": "Recessione europea con aumento NPL, specialmente in Germania e nell'area CEE.",
+          "sector": "Compressione NIM se i tagli BCE sono più rapidi del previsto e la curva si inverte.",
+          "company": "Esposizione a Commerzbank (19.9%) crea rischio di acquisizione ostile con impiego di capitale non pianificato.",
+          "regulatory": "BCE potrebbe bloccare o ridurre il buyback se emergono rischi sistemici imprevisti nel sistema bancario europeo.",
+          "valuation": "Il re-rating da 7.3x a 10x P/E richiede continuità degli utili elevati; qualsiasi warning profit azzera il premio."
+        },
+        "falsification": "Se la BCE blocca il buyback o UniCredit lancia un'OPA su Commerzbank a premio, la tesi capital return decade completamente.",
+        "next_checks": [
+          "Decisione BCE sul piano di capitale UCG (settembre 2026)",
+          "Update NPL ratio Q2 2026 (agosto 2026)",
+          "Sviluppi sulla posizione in Commerzbank"
+        ],
+        "quality": "alta",
+        "scoring": {
+          "forza_catalizzatore": 8,
+          "fit_orizzonte": 9,
+          "asimmetria_narrativa": 9,
+          "qualita_evidenze": 7,
+          "rischio_crowding": 7,
+          "totale": 40
+        }
+      },
+      {
+        "ticker": "AAPL",
+        "scenarios": {
+          "base": "iPhone 18 con AI di seconda generazione catalizza ciclo upgrade moderato, EPS FY2027 a 7.20 USD, titolo sale verso 230 USD.",
+          "bull": "Penetrazione Apple Intelligence in EU supera il 50% degli utenti compatibili entro Q1 2027, ARPU servizi sale a 28 USD/utente, titolo verso 270 USD.",
+          "bear": "Ciclo upgrade delude per mancanza di killer feature percepita, crescita servizi rallenta sotto il 10%, titolo ritesta 180 USD."
+        },
+        "risks": {
+          "macro": "Rallentamento consumi premium in US e Cina comprime volumi hardware.",
+          "sector": "Android AI (Google Pixel + Gemini Nano) con prezzi aggressivi erode il vantaggio differenziale di Apple Intelligence.",
+          "company": "Dipendenza da TSMC per chip A-series: qualsiasi disruption produttiva ritarda il lancio iPhone 18.",
+          "regulatory": "DMA enforcement aggressivo potrebbe forzare ulteriore apertura App Store, comprimendo margini del segmento Services.",
+          "valuation": "P/E 34.2x è elevato per un'azienda hardware con crescita revenue single-digit; richiede premium di servizi confermato."
+        },
+        "falsification": "Se le prevendite iPhone 18 nei primi 72 ore sono inferiori del 15% all'iPhone 17, il ciclo upgrade AI non si è materializzato.",
+        "next_checks": [
+          "WWDC 2026 (giugno 2026) — annunci Apple Intelligence v2",
+          "Dati supply chain iPhone 18 (agosto-settembre 2026)",
+          "Earnings Q3 FY2026 (agosto 2026) — crescita servizi"
+        ],
+        "quality": "media",
+        "scoring": {
+          "forza_catalizzatore": 7,
+          "fit_orizzonte": 7,
+          "asimmetria_narrativa": 6,
+          "qualita_evidenze": 8,
+          "rischio_crowding": 5,
+          "totale": 33
+        }
+      }
+    ],
+    "candidates": [
+      {
+        "ticker": "MSFT",
+        "company": "Microsoft Corporation",
+        "market": "US",
+        "theme_id": "T1",
+        "thesis": "Microsoft è il principale beneficiario della spesa enterprise per AI, con Azure OpenAI Service che rappresenta l'unico percorso enterprise-grade verso i modelli frontier di OpenAI.",
+        "catalyst": "Risultati Q4 FY2026 (luglio 2026) con primo riconoscimento completo dei ricavi Copilot Enterprise.",
+        "news_ids": ["N1", "N9"],
+        "fundamentals": {
+          "price": "449.87",
+          "pe_ttm": "37.8",
+          "eps": "11.90",
+          "52w_range": "344.79-468.35",
+          "analyst_target": "495.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 55,
+          "strong_buy": 30,
+          "buy": 18,
+          "hold": 6,
+          "sell": 1,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.8",
+          "giudizio_sintetico": "Strong Buy"
+        }
+      },
+      {
+        "ticker": "UCG.MI",
+        "company": "UniCredit S.p.A.",
+        "market": "EU",
+        "theme_id": "T2",
+        "thesis": "UniCredit è la banca europea meglio posizionata per il ciclo di capital return con CET1 al 16.2% e P/E 7.3x.",
+        "catalyst": "Approvazione BCE del buyback Q3 2026 e rimozione dei buffer di capitale.",
+        "news_ids": ["N3", "N5", "N10"],
+        "fundamentals": {
+          "price": "42.15",
+          "pe_ttm": "7.3",
+          "eps": "5.77",
+          "52w_range": "27.62-48.90",
+          "analyst_target": "52.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 28,
+          "strong_buy": 12,
+          "buy": 10,
+          "hold": 5,
+          "sell": 1,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.9",
+          "giudizio_sintetico": "Buy"
+        }
+      },
+      {
+        "ticker": "AAPL",
+        "company": "Apple Inc.",
+        "market": "US",
+        "theme_id": "T1",
+        "thesis": "Il via libera DMA per Apple Intelligence nell'UE apre un mercato incrementale di 450M utenti a funzionalità AI premium.",
+        "catalyst": "Presentazione iPhone 18 (settembre 2026) con Apple Intelligence di seconda generazione.",
+        "news_ids": ["N2", "N6"],
+        "fundamentals": {
+          "price": "213.49",
+          "pe_ttm": "34.2",
+          "eps": "6.43",
+          "52w_range": "164.08-237.23",
+          "analyst_target": "228.50"
+        },
+        "analyst_consensus": {
+          "total_analysts": 42,
+          "strong_buy": 18,
+          "buy": 14,
+          "hold": 8,
+          "sell": 2,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "2.1",
+          "giudizio_sintetico": "Buy"
+        }
+      }
+    ]
+  }
+}
