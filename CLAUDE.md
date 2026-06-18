@@ -9,20 +9,34 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 uv sync
 
 # Run a single agent (example: data-collector on port 8001)
-uv run python agents/data-collector/agent.py
+uv run python agents/data-collector/data_collector.py
 
-# Run all 5 agents (each in a separate terminal)
-uv run python agents/data-collector/agent.py      # :8001
-uv run python agents/news-sentiment/agent.py      # :8002
-uv run python agents/fundamental-analyst/agent.py # :8003
-uv run python agents/risk-assessor/agent.py       # :8004
-uv run python agents/report-writer/agent.py       # :8009
+# Run all 6 agents (each in a separate terminal)
+uv run python agents/data-collector/data_collector.py           # :8001
+uv run python agents/news-sentiment/news_sentiment.py           # :8002
+uv run python agents/fundamental-analyst/fundamental_analyst.py # :8003
+uv run python agents/risk-assessor/risk_assessor.py             # :8004
+uv run python agents/report-writer/report_writer.py             # :8009
+uv run python agents/portfolio-manager/portfolio_manager.py     # :8010
 
-# Run the full pipeline (requires all agents running)
-uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI
+# Run the Orchestrator API (director, requires all 6 agents running)
+uv run python orchestrator/api.py                  # :8000
 
-# Save output to file
-uv run python orchestrator/main.py --tickers AAPL MSFT --output report.json
+# Via CLI (bypasses orchestrator/api.py, same 3 modes)
+uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI --mode full
+uv run python orchestrator/main.py --tickers AAPL MSFT --mode analyze
+uv run python orchestrator/main.py --mode portfolio
+
+# Save output to file (CLI only)
+uv run python orchestrator/main.py --tickers AAPL MSFT --mode analyze --output report.json
+
+# Orchestrator API calls
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"tickers":["AAPL","MSFT"],"mode":"analyze"}'
+
+curl http://localhost:8000/portfolio   # stato corrente portafoglio
+curl http://localhost:8000/health      # health aggregato 6 agenti
 
 # Health check a running agent
 curl http://localhost:8001/health
@@ -33,20 +47,35 @@ curl http://localhost:8001/.well-known/agent.json
 
 ## Architecture
 
-This is an **A2A (Agent-to-Agent)** multi-agent equity research system. The CrewAI pipeline was decomposed into 5 independent FastAPI services that communicate via **JSON-RPC 2.0 over HTTP**.
+This is an **A2A (Agent-to-Agent)** multi-agent equity research system. The CrewAI pipeline was decomposed into 6 independent FastAPI services that communicate via **JSON-RPC 2.0 over HTTP**, orchestrated by a LangGraph director on port 8000.
 
-### Pipeline (sequential, orchestrated)
+### Three Workflows (selectable via `mode`)
 
 ```
-Orchestrator
-  → [1] DataCollector     :8001  Anthropic SDK ReAct fetch fundamentals from yfinance
-  → [2] NewsSentiment     :8002  Anthropic SDK ReAct RSS feeds → JSON news + themes
-  → [3] FundamentalAnalyst:8003  Anthropic SDK ReAct news+themes+fundamentals → candidates
-  → [4] RiskAssessor      :8004  Anthropic SDK ReAct candidates → scoring + scenarios
-  → [5] ReportWriter      :8005  Anthropic SDK direct final Italian report + QA pass
+mode=analyze:
+  OrchestratorAPI(:8000)
+    → router → data_collector(:8001) ─┐  (parallel fan-out)
+             → news_sentiment(:8002)  ─┴─► fundamental_analyst(:8003)
+                                           → risk_assessor(:8004)
+                                           → report_writer(:8009) → END
+
+mode=portfolio:
+  OrchestratorAPI(:8000)
+    → router → portfolio_loader [SQLite] → portfolio_manager(:8010) → END
+
+mode=full:
+  OrchestratorAPI(:8000)
+    → router → data_collector(:8001) ─┐  (parallel fan-out)
+             → news_sentiment(:8002)  ─┴─► fundamental_analyst(:8003)
+                                           → risk_assessor(:8004)
+                                           → report_writer(:8009)
+                                           → portfolio_loader [SQLite]
+                                           → portfolio_manager(:8010) → END
 ```
 
-The orchestrator (`orchestrator/main.py`) uses **LangGraph** (`StateGraph`). Each pipeline step is a node; `PipelineState` (TypedDict) carries accumulated data across nodes. The graph is compiled once at module load (`_build_graph()`) and invoked with `_graph.ainvoke(initial_state)`. Adding conditional edges, parallel branches, or retry loops only requires modifying `_build_graph()` — node logic stays untouched.
+**Conditional edges:** fail-fast after `fundamental_analyst` if no candidates (skips risk_assessor, report_writer, portfolio branch). Routing is deterministic today (LLM-ready: functions receive full `PipelineState`, replace body with `react_loop()` call when cloud provider available).
+
+The orchestrator (`orchestrator/main.py`) uses **LangGraph** (`StateGraph`). `PipelineState` (TypedDict) carries accumulated data across nodes. `orchestrator/api.py` wraps the pipeline as a FastAPI service on port 8000.
 
 ### A2A Protocol
 
@@ -67,18 +96,20 @@ Every agent follows the same pattern:
 
 ### Models in use
 
-| Agent | Framework | Model |
-|---|---|---|
-| DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` |
-| NewsSentiment | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` |
-| FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` |
-| RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` |
-| ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report) + `claude-sonnet-4-6` (QA) |
+| Agent | Framework | Model | Port |
+|---|---|---|---|
+| DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8001 |
+| NewsSentiment | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8002 |
+| FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8003 |
+| RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8004 |
+| ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report + QA) | 8009 |
+| PortfolioManager | Anthropic SDK direct | `claude-sonnet-4-6` | 8010 |
 
 ### Shared tools
 
-- `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. Wraps yfinance with a 15s per-ticker timeout via `ThreadPoolExecutor`.
-- `shared/tools/rss_feed.py` — `fetch_rss_news()` reads 6 RSS feeds (Reuters, Yahoo Finance, MarketWatch, Investing.com × 2) with retry logic.
+- `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. **Stub only** — yfinance rimosso (scraping non ufficiale, no licenza commerciale, incompatibile MiFID II). Le funzioni lanciano `NotImplementedError`. Integrazione provider certificato (Refinitiv LSEG / Bloomberg B-PIPE / Alpha Vantage enterprise) pianificata in **Fase 5**. In `DEMO_MODE=true` queste funzioni non vengono mai chiamate.
+- `shared/tools/rss_feed.py` — `fetch_rss_news()` reads RSS feeds (Reuters, Yahoo Finance, MarketWatch) with retry logic. Licenza commerciale da verificare in Fase 5.
+- `shared/portfolio_db.py` — `init_db()` / `load_portfolio_state()` / `save_portfolio_state()`: persistenza SQLite per il portafoglio fittizio (`output/portfolio.db`). Seed iniziale 100.000 USD. Upgrade naturale a PostgreSQL in Fase 5/6.
 
 ### ReAct loop nativo
 
@@ -93,6 +124,11 @@ Tutti e 4 gli agenti con tool use (DataCollector, NewsSentiment, FundamentalAnal
 - `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: autenticazione inter-agente
 - `shared/secrets.py` — `get_secret()`: factory secret provider-agnostic (local/azure/aws)
 - `shared/sanitize.py` — `sanitize_rss_item()`: sanitizzazione input RSS anti prompt-injection
+
+### Orchestrator internals
+
+- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: entry point LangGraph. Compila il grafo con `_build_graph_builder()` a ogni chiamata (per consentire checkpointing corretto). `PipelineState` TypedDict con campi: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`.
+- `orchestrator/api.py` — FastAPI su porta 8000. `POST /research`, `GET /portfolio`, `GET /health`. Instrada le request a `run_pipeline()`.
 
 ### Domain constraints (hardcoded in agent prompts)
 
@@ -117,7 +153,7 @@ Non esiste un file `.env` — le variabili d'ambiente sono iniettate dalla piatt
 
 ```powershell
 $env:DEMO_MODE = "true"
-uv run python agents/data-collector/agent.py
+uv run python agents/data-collector/data_collector.py
 ```
 
 ### Produzione (AWS Bedrock)

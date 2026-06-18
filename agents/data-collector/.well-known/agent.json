@@ -1,7 +1,7 @@
 {
   "name": "DataCollector",
   "version": "1.0.0",
-  "description": "Fetches real fundamental data for equity tickers (US/EU) via yfinance",
+  "description": "Fetches fundamental data for equity tickers (US/EU) — certified provider (Fase 5 pending, DEMO_MODE in local dev)",
   "url": "http://localhost:8001",
   "capabilities": ["equity_fundamentals", "analyst_consensus", "price_data"],
   "input_schema": {

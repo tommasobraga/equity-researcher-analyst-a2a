@@ -157,7 +157,24 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     if is_demo_mode():
         demo = load_demo_response("risk-assessor")
-        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        input_data_demo: dict[str, Any] = {}
+        for part in task.message.parts:
+            if hasattr(part, "data"):
+                input_data_demo.update(part.data)
+        input_tickers = {c["ticker"] for c in input_data_demo.get("candidates", [])}
+        all_ra = demo["data"]["risk_assessment"]
+        all_candidates = demo["data"]["candidates"]
+        if input_tickers:
+            risk_assessment = [r for r in all_ra if r["ticker"] in input_tickers] or all_ra
+            candidates = [c for c in all_candidates if c["ticker"] in input_tickers] or all_candidates
+        else:
+            risk_assessment = all_ra
+            candidates = all_candidates
+        result = A2ATaskResult.ok(
+            task.id,
+            f"Risk assessment complete for {len(risk_assessment)} candidate(s).",
+            data={"risk_assessment": risk_assessment, "candidates": candidates},
+        )
         write_audit_event(make_audit_event(
             agent="RiskAssessor", status="demo",
             correlation_id=correlation_id, model_id=_MODEL_ID,
@@ -177,8 +194,15 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     today = date.today().isoformat()
     candidates_json = json.dumps(candidates, ensure_ascii=False)
+
+    risk_history_parts = [
+        snip for snip in input_data.get("risk_history", {}).values() if snip
+    ]
+    history_block = "\n\n".join(risk_history_parts)
+
     user_prompt = (
-        f"EQUITY CANDIDATES:\n{candidates_json}\n\n"
+        (f"HISTORICAL RISK CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
+        + f"EQUITY CANDIDATES:\n{candidates_json}\n\n"
         "Now perform the risk assessment for each candidate."
     )
 

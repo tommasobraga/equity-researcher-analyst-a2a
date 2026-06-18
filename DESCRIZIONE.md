@@ -6,7 +6,7 @@
 
 The system takes a list of stock tickers as input (e.g. `AAPL MSFT UCG.MI`) and, fully automatically, collects market fundamentals, processes real-time financial news, identifies the candidates with the highest potential, assesses risk across five quantitative dimensions, and generates a professional report with executive summary, base/bull/bear scenarios, and comparative scoring.
 
-The architecture decomposes a traditional monolithic CrewAI pipeline into **5 independent FastAPI microservices** communicating via JSON-RPC 2.0 over HTTP. Each agent is built on a different AI framework — OpenAI Agents SDK, Smolagents, BeeAI, and the Anthropic SDK directly — a deliberate choice that makes the system a live architectural benchmark across the main agentic orchestration paradigms.
+The architecture decomposes a traditional monolithic CrewAI pipeline into **5 independent FastAPI microservices** communicating via JSON-RPC 2.0 over HTTP. All agents use the **Anthropic SDK natively** with a custom ReAct loop (`shared/react.py`), without intermediate frameworks.
 
 ---
 
@@ -16,7 +16,7 @@ The architecture decomposes a traditional monolithic CrewAI pipeline into **5 in
 The full research pipeline — which would require hours of analytical work if done manually — completes in minutes. Each agent is an autonomous microservice: it can be scaled, replaced, or updated independently without affecting the others.
 
 **Complete information coverage**
-The system simultaneously aggregates data from heterogeneous sources — RSS feeds from Reuters, Yahoo Finance, MarketWatch, and Investing.com for news, yfinance for fundamentals — ensuring that no relevant information is lost due to time constraints or limited human attention.
+The system simultaneously aggregates data from heterogeneous sources — RSS feeds from Reuters, Yahoo Finance, MarketWatch, and Investing.com for news, and a certified market data provider for fundamentals (Fase 5 pending — DEMO_MODE in local dev) — ensuring that no relevant information is lost due to time constraints or limited human attention.
 
 **Quality and reproducibility**
 Every claim in the report is traceable: news items are identified by unique codes (N1, N2…) and explicitly cited for each candidate. An automated QA pass verifies calculation consistency (scoring, analyst consensus) and formal correctness before the report is delivered.
@@ -40,7 +40,7 @@ The LangGraph orchestrator allows new agents (Portfolio Manager, Macro Agent, Ea
 | **Pre-earnings screening** | Analyse candidates in Technology, AI, and Banking sectors ahead of earnings seasons, with company-specific investment theses and catalysts |
 | **Portfolio review** | Feed an existing portfolio's tickers to get an updated risk profile assessment and analyst consensus changes |
 | **Thematic research** | Identify the best stocks exposed to a specific market theme (e.g. AI, semiconductors) by cross-referencing recent news and fundamentals |
-| **Architectural prototyping** | Use the project as a template to benchmark agentic AI frameworks (OpenAI Agents SDK vs Smolagents vs BeeAI vs Anthropic SDK) on a real pipeline |
+| **Architectural prototyping** | Use the project as a template for A2A multi-agent patterns: native ReAct loop, LangGraph orchestration, HMAC inter-agent auth, structured audit trail |
 | **Training and education** | Study in practice the ReAct, Chain of Thought, Feedback Loop, Conditional Constraints, and Structured Output patterns on a concrete use case |
 
 ---
@@ -53,21 +53,22 @@ The LangGraph orchestrator allows new agents (Portfolio Manager, Macro Agent, Ea
 # 1. Install dependencies
 uv sync
 
-# 2. Start the 5 agents (each in a separate terminal)
-uv run python agents/data-collector/agent.py      # port 8001
-uv run python agents/news-sentiment/agent.py      # port 8002
-uv run python agents/fundamental-analyst/agent.py # port 8003
-uv run python agents/risk-assessor/agent.py       # port 8004
-uv run python agents/report-writer/agent.py       # port 8005
+# 2. Start all 6 agents (each in a separate terminal, or use start.sh)
+uv run python agents/data-collector/data_collector.py       # port 8001
+uv run python agents/news-sentiment/news_sentiment.py       # port 8002
+uv run python agents/fundamental-analyst/fundamental_analyst.py  # port 8003
+uv run python agents/risk-assessor/risk_assessor.py         # port 8004
+uv run python agents/report-writer/report_writer.py         # port 8009
+uv run python agents/portfolio-manager/portfolio_manager.py # port 8010
 
 # 3. Run the pipeline
-uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI
+uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI --mode full
 
 # Save report to file
 uv run python orchestrator/main.py --tickers AAPL MSFT --output report.json
 ```
 
-Only `ANTHROPIC_API_KEY` in the `.env` file at the project root is required. No other keys are needed (yfinance and RSS feeds are free).
+No `.env` file — env vars are injected by the platform (ECS, Lambda) or set in the shell locally. For local dev use `DEMO_MODE=true` (no LLM calls). See CLAUDE.md for the full variable reference.
 
 ---
 
@@ -144,14 +145,14 @@ Each agent also exposes:
 ## The 5 Agents in Detail
 
 ### [1] Data Collector — port 8001
-**Framework:** OpenAI Agents SDK (via LiteLLM) | **Model:** `claude-haiku-4-5-20251001`
+**Framework:** Anthropic SDK native ReAct | **Model:** `claude-haiku-4-5-20251001`
 
-Receives the ticker list from the orchestrator, calls `fetch_fundamentals` individually for each one via **yfinance**, and returns a JSON array of fundamentals. The tool is decorated with `@function_tool` (OpenAI Agents SDK pattern).
+Receives the ticker list from the orchestrator, calls `fetch_fundamentals` individually for each one, and returns a JSON array of fundamentals. Market data comes from a certified provider (Fase 5 pending — stub raises `NotImplementedError` in non-demo mode).
 
 Data returned per ticker: current price, P/E TTM, forward P/E, EPS TTM, 52-week range, market cap, average analyst target, analyst count, recommendation, buy/hold/sell breakdown, sector.
 
 ### [2] News & Sentiment — port 8002
-**Framework:** Smolagents (HuggingFace) `CodeAgent` | **Model:** `claude-haiku-4-5-20251001`
+**Framework:** Anthropic SDK native ReAct | **Model:** `claude-haiku-4-5-20251001`
 
 Reads 6 financial RSS feeds (Reuters, Yahoo Finance, MarketWatch, Investing.com) via `read_financial_rss`. Selects the 10–12 most relevant articles for priority sectors, assigns each a unique ID (N1, N2, …), and clusters them into 3–4 macro market themes.
 
@@ -161,16 +162,14 @@ Reads 6 financial RSS feeds (Reuters, Yahoo Finance, MarketWatch, Investing.com)
 Output: JSON object `{"news": [...], "themes": [...]}`.
 
 ### [3] Fundamental Analyst — port 8003
-**Framework:** BeeAI `ReActAgent` | **Model:** `claude-haiku-4-5-20251001`
+**Framework:** Anthropic SDK native ReAct | **Model:** `claude-sonnet-4-6`
 
 Receives news, themes, and pre-fetched fundamentals from the previous step. Identifies up to 3 equity candidates that best fit the market themes, calls `fetch_fundamentals` to verify and enrich data, and builds a company-specific investment thesis (not just macro commentary).
 
 Output: JSON array of candidates with ticker, thesis, catalyst, supporting news IDs, fundamentals, and analyst consensus.
 
-> **BeeAI note:** The `ReActAgent` uses assistant message prefill internally — incompatible with Sonnet 4.6. BeeAI agents must stay on `claude-haiku-4-5-20251001` until BeeAI adds a non-prefill runner for Claude 4.x.
-
 ### [4] Risk Assessor — port 8004
-**Framework:** BeeAI `ReActAgent` with Conditional Constraints | **Model:** `claude-haiku-4-5-20251001`
+**Framework:** Anthropic SDK native ReAct with Conditional Constraints | **Model:** `claude-sonnet-4-6`
 
 Receives the candidates identified by the Fundamental Analyst. For each candidate:
 
@@ -183,7 +182,7 @@ Receives the candidates identified by the Fundamental Analyst. For each candidat
    - `evidence_quality` — quality and specificity of supporting evidence
    - `crowding_risk` — risk of crowded positioning
 
-### [5] Report Writer — port 8005
+### [5] Report Writer — port 8009
 **Framework:** Anthropic SDK direct | **Model:** `claude-sonnet-4-6` (report + QA)
 
 Produces the final report in two steps:
@@ -197,131 +196,6 @@ Produces the final report in two steps:
 **Step 2 — QA review** (same model, `max_tokens=2048`):
 - Checks: JSON schema compliance, news citations, no explicit buy/sell, scoring correctness, Italian language, consistent dates
 - Responds with `QA: [APPROVED|CORRECTED]` and optionally `=== CORRECTIONS ===`
-
----
-
-## Final Report Schema (JSON)
-
-```json
-{
-  "analysis_date": "YYYY-MM-DD",
-  "universe": "US and EU equities",
-  "themes": [
-    {
-      "theme_id": "T1",
-      "title": "...",
-      "why_now": "...",
-      "evidence": ["N1"],
-      "indicators_to_monitor": ["item"]
-    }
-  ],
-  "candidates": [
-    {
-      "rank": 1,
-      "ticker": "AAPL",
-      "company": "Apple Inc.",
-      "market": "US",
-      "theme": "T1",
-      "thesis": "...",
-      "catalyst": "...",
-      "horizon_weeks": "...",
-      "scenarios": {"base": "", "bull": "", "bear": ""},
-      "risks": {"macro": "", "sector": "", "company": "", "regulatory": "", "valuation": ""},
-      "falsification_trigger": "what would invalidate the thesis",
-      "next_checks": ["item"],
-      "cited_evidence": ["N1", "N2"],
-      "quality_rating": "high|medium|low",
-      "scoring": {
-        "catalyst_strength": 8,
-        "horizon_fit": 7,
-        "narrative_asymmetry": 6,
-        "evidence_quality": 7,
-        "crowding_risk": 5,
-        "total": 33
-      },
-      "analyst_consensus": {
-        "total_analysts": 42,
-        "strong_buy": 20, "buy": 15, "hold": 5, "sell": 1, "strong_sell": 1,
-        "summary": "Buy",
-        "average_target": "$220"
-      }
-    }
-  ],
-  "excluded_candidates": [{"ticker": "...", "exclusion_reason": "..."}],
-  "methodological_note": "..."
-}
-```
-
----
-
-## Shared Tools
-
-### `shared/tools/yfinance_tool.py`
-Wrapper around **yfinance** with a 15-second timeout per ticker (via `ThreadPoolExecutor`). Exposes two functions:
-- `get_stock_fundamentals(ticker)` → dictionary
-- `get_stock_fundamentals_text(ticker)` → formatted string
-
-### `shared/tools/rss_feed.py`
-Reads 6 financial RSS feeds with retry logic:
-- Reuters Markets
-- Yahoo Finance
-- MarketWatch
-- Investing.com (×2 feeds)
-
----
-
-## Rate Limit Handling
-
-The orchestrator implements two mechanisms:
-
-1. **`send_task_with_retry`** — detects `rate_limit` errors in the response and retries up to 3 times with a 65-second wait between attempts.
-2. **Explicit sleep** — the `node_risk_assessor` node waits 65 seconds before starting, to let the Haiku rate limit window reset after the Fundamental Analyst's intensive tool calls.
-
----
-
-## Domain Constraints (hardcoded)
-
-| Parameter | Value |
-|-----------|-------|
-| Universe | US and EU equities (UK/LSE excluded) |
-| Excluded sectors | energy, utilities, real estate, REITs, consumer staples, industrials, airlines, crypto/DeFi/Web3 |
-| Priority sectors | Technology, AI, Software, Semiconductors, Banking, Financial Services |
-| Output language | Italian |
-| Maximum candidates | 5 (typically 3 from Fundamental Analyst) |
-| Scoring | 5 dimensions × max 10 = max 50 |
-
----
-
-## File Structure
-
-```
-equity-researcher-analyst-a2a/
-├── .env                          ← ANTHROPIC_API_KEY
-├── pyproject.toml                ← uv dependencies
-├── orchestrator/
-│   └── main.py                   ← LangGraph pipeline + A2A client
-├── agents/
-│   ├── data-collector/
-│   │   ├── agent.py              ← OpenAI Agents SDK, port 8001
-│   │   └── .well-known/agent.json
-│   ├── news-sentiment/
-│   │   ├── agent.py              ← Smolagents CodeAgent, port 8002
-│   │   └── .well-known/agent.json
-│   ├── fundamental-analyst/
-│   │   ├── agent.py              ← BeeAI ReActAgent, port 8003
-│   │   └── .well-known/agent.json
-│   ├── risk-assessor/
-│   │   ├── agent.py              ← BeeAI ReActAgent + guardrail, port 8004
-│   │   └── .well-known/agent.json
-│   └── report-writer/
-│       ├── agent.py              ← Anthropic SDK direct, port 8005
-│       └── .well-known/agent.json
-└── shared/
-    ├── a2a_models.py             ← Pydantic models (A2ATask, JsonRpc*, etc.)
-    └── tools/
-        ├── yfinance_tool.py      ← yfinance wrapper with timeout
-        └── rss_feed.py           ← financial RSS feed reader
-```
 
 ---
 

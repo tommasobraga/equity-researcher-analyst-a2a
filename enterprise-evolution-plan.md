@@ -1,8 +1,40 @@
 # Piano di Evoluzione Enterprise — Equity Researcher A2A
 
+## Baseline Architetturale (stato pre-evoluzione — 16 giugno 2026)
+
+> Questa sezione documenta l'architettura originale e i rischi identificati che hanno guidato la definizione delle fasi. Incorpora i contenuti dell'architectural-review condotta al momento del kick-off enterprise.
+
+### Architettura originale (stack pre-migrazione)
+
+| Componente | Tecnologia originale | Stato attuale |
+|---|---|---|
+| Orchestrator | LangGraph StateGraph | **Invariato** |
+| DataCollector | OpenAI Agents SDK + LiteLLM | **Migrato** → Anthropic SDK native ReAct |
+| NewsSentiment | Smolagents (HuggingFace) | **Migrato** → Anthropic SDK native ReAct |
+| FundamentalAnalyst | BeeAI ReActAgent | **Migrato** → Anthropic SDK native ReAct |
+| RiskAssessor | BeeAI ReActAgent | **Migrato** → Anthropic SDK native ReAct |
+| ReportWriter | Anthropic SDK direct | **Invariato** |
+| Dati fondamentali | yfinance (scraping Yahoo Finance) | **Rimosso** → stub NotImplementedError (Fase 5) |
+| Dati news | RSS Reuters/Yahoo/MarketWatch + Investing.com ×2 | Investing.com **rimosso**, altri ⚠️ da verificare con Legal |
+
+### Rischi identificati e stato attuale
+
+| Priorità | Rischio | Fase | Stato |
+|---|---|:---:|---|
+| 1 | Nessun audit trail — incompatibile con compliance financial services | 1 | ✅ Risolto |
+| 2 | Porte 8001-8005 aperte senza autenticazione inter-agente | 2 | ✅ Risolto (HMAC-SHA256) |
+| 3 | Prompt injection da feed RSS — input non fidato passato ai modelli | 2 | ✅ Risolto (shared/sanitize.py) |
+| 4 | Nessun retry strutturato, nessun circuit breaker, SPOF orchestratore | 3 | ✅ Risolto (tenacity + circuit breaker custom) |
+| 5 | yfinance — dato non certificato, non auditabile, scraping non ufficiale | 5 | ✅ Stub rimosso anticipatamente — provider Fase 5 |
+| 6 | Payload monolitico crescente — rischio context overflow su batch grandi | 3/6 | ⚠️ Parzialmente (windowing Fase 3) — soluzione strutturale in Fase 6 |
+| 7 | Ambiente non riproducibile, prompt non versionati, nessun contract testing | 4 | ⏳ Pendente |
+| 8 | Provider LLM non approvato (ANTHROPIC_API_KEY diretta) | 0 | ✅ Risolto (shared/llm_client.py + DEMO_MODE) |
+
+---
+
 ## Context
 
-Il sistema attuale è un prototipo funzionante con una base architettuale corretta (A2A, LangGraph, separazione dei concern, guardrail deterministici). Il gap verso un deployment enterprise non è nei pattern scelti, ma nella mancanza dei layer trasversali: sicurezza, osservabilità, auditabilità, resilienza.
+Il sistema è un prototipo funzionante con una base architettuale corretta (A2A, LangGraph, separazione dei concern, guardrail deterministici). Il gap verso un deployment enterprise non è nei pattern scelti, ma nella mancanza dei layer trasversali: sicurezza, osservabilità, auditabilità, resilienza.
 
 Il piano è strutturato in **6 fasi milestone ordinate per priorità**. Non riscrive l'architettura — la evolve incrementalmente. Il contratto A2A rimane stabile per tutta la durata del piano.
 
@@ -27,9 +59,9 @@ Il piano è strutturato in **6 fasi milestone ordinate per priorità**. Non risc
 | JSON-RPC 2.0 | Protocollo inter-agente | ✅ | Standard aperto, nessuna dipendenza vendor |
 | uv | Package manager | ⚠️ | Relativamente nuovo (2023); verificare se la policy interna ammette alternative a pip/poetry. Rischio basso ma da confermare |
 | LangGraph (LangChain) | Orchestrazione | ⚠️ | Ampiamente adottato in enterprise AI, ma evolve rapidamente. Verificare versione minima supportata e se LangChain Inc. è vendor approvato |
-| OpenAI Agents SDK | Framework agente | ⚠️ | Usato via LiteLLM per routing verso Anthropic — il vendor effettivo è Anthropic, non OpenAI. Verificare se l'SDK stesso è in whitelist o se preferibile rimpiazzarlo con un wrapper diretto |
-| Smolagents (HuggingFace) | Framework agente | ⚠️ | Framework giovane (2024), vendor HuggingFace. Da verificare approvazione vendor e se la policy ammette modelli/tool da HuggingFace Hub. **Candidato alla sostituzione in Fase 4** |
-| BeeAI (IBM) | Framework agente | ⚠️ | Vendor IBM (generalmente approvato), ma il progetto è open source relativamente recente. Verificare versione e supporto LTS. **Vincolo tecnico noto:** non supporta prefill → bloccato su Haiku 4.5 |
+| OpenAI Agents SDK | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct (`shared/react.py`) |
+| Smolagents (HuggingFace) | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct |
+| BeeAI (IBM) | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct (eliminato anche il vincolo prefill / Haiku) |
 | Anthropic API (diretta) | LLM provider | ❌ | **Non approvato per nessun workload applicativo**, incluso lo sviluppo locale. La policy Accenture vieta esplicitamente l'uso di `ANTHROPIC_API_KEY` personali o non gestite. Tutti gli accessi LLM devono passare per AWS Bedrock, Google Vertex AI, o Azure AI Foundry con autenticazione IAM/service account. Vedi Fase 0 |
 | AWS Bedrock (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Autenticazione via IAM role. Provisioning tramite CAPP (Global IT) o CMO (resto Accenture) |
 | Azure AI Foundry (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Coerente con Azure Key Vault (Fase 2). Autenticazione via Azure Managed Identity / service principal |
@@ -79,11 +111,11 @@ Il piano è strutturato in **6 fasi milestone ordinate per priorità**. Non risc
 
 Prima di avviare qualsiasi fase, verificare nell'ordine:
 
-1. **Cloud provider** — **blocca l'esecuzione end-to-end anche in locale**. Nessuna `ANTHROPIC_API_KEY` è ammessa, nemmeno in sviluppo. Aprire ticket ServiceNow "Claude Enterprise" con use case applicativo per ottenere accesso a Bedrock, Vertex AI, o Azure AI Foundry. Senza questo, si può scrivere codice e test con mock, ma non eseguire la pipeline reale.
-2. **yfinance e RSS Investing.com** — da disabilitare o sostituire prima di qualsiasi demo a stakeholder client. Rischio legale immediato.
-3. **Smolagents (HuggingFace)** — valutare sostituzione in Fase 4 con wrapper diretto verso il cloud provider scelto o LiteLLM standalone, eliminando la dipendenza dal framework.
+1. ~~**Cloud provider**~~ ✅ **Risolto** — `shared/llm_client.py` + `DEMO_MODE=true` in sviluppo locale. Per produzione: aprire ticket ServiceNow "Claude Enterprise" (Bedrock, Vertex AI, o Azure AI Foundry).
+2. ~~**yfinance e RSS Investing.com**~~ ✅ **Risolto** — yfinance rimosso (stub NotImplementedError), Investing.com rimosso da rss_feed.py.
+3. ~~**Smolagents / BeeAI / OpenAI Agents SDK**~~ ✅ **Risolto** — tutti rimossi, Anthropic SDK native ReAct uniforme.
 4. **CI/CD platform** — decidere GitHub Actions vs Azure DevOps prima di Fase 4 per non dover migrare pipeline.
-5. **Cloud provider per infrastruttura** — confermare Azure-first vs multi-cloud prima di Fase 6 (impatta scelta artifact store, secret manager, GitOps tool). Nota: il provider per i workload LLM (punto 1) e quello per l'infrastruttura possono essere diversi.
+5. **Cloud provider per infrastruttura** — confermare Azure-first vs multi-cloud prima di Fase 6 (impatta scelta artifact store, secret manager, GitOps tool).
 
 ---
 
@@ -97,7 +129,7 @@ Prima di avviare qualsiasi fase, verificare nell'ordine:
 **Interventi:**
 
 **0a — Ottenere accesso cloud-managed a Claude**
-- Aprire ticket ServiceNow categoria "Claude Enterprise" specificando: use case applicativo (equity research agent pipeline), framework usati (LangGraph, LiteLLM, Anthropic SDK, BeeAI), cloud provider preferito
+- Aprire ticket ServiceNow categoria "Claude Enterprise" specificando: use case applicativo (equity research agent pipeline), framework usati (LangGraph, Anthropic SDK native ReAct), cloud provider preferito
 - Attendere provisioning tramite CAPP (Global IT) o CMO
 - Output atteso: credenziali IAM (AWS role ARN, Azure service principal, o GCP service account) per accesso a Claude tramite il cloud provider assegnato
 
@@ -224,6 +256,22 @@ Prima di avviare qualsiasi fase, verificare nell'ordine:
 - Bloomberg B-PIPE — se contratto già presente nell'organizzazione
 
 **Sequenza minima per MiFID II (se il driver è la compliance):** Fase 1 → Fase 5 → Fase 2. Le fasi 3, 4, 6 sono operative ma non prerequisiti diretti di conformità normativa.
+
+> **Nota operativa — stato attuale (giugno 2026):** in `DEMO_MODE=true` nessuna fonte dati esterna viene chiamata — questa fase non è bloccante per lo sviluppo. L'esplorazione organizzativa è in corso in spare time.
+
+**Percorso organizzativo (da esplorare):**
+
+Tutti i provider dati e news devono essere licenziati prima di qualsiasi deployment production o demo a stakeholder client. Il percorso:
+
+1. **Verificare approved vendor list** — controllare su portale ATCI se Refinitiv LSEG o Bloomberg sono già vendor approvati in Accenture. Se sì, si bypassa il processo di approvazione e si va direttamente al provisioning.
+2. **Technology Architecture Board** — se il vendor non è in lista, aprire richiesta di approvazione con use case (equity research pipeline, financial services, MiFID II). Referenti: Security Lead della practice + Technology Architecture Board.
+3. **Legal / Compliance** — valutazione clausole di redistribuzione dei contenuti news (Reuters Connect incluso in Refinitiv ha restrizioni su output a terzi).
+4. **Contratto / provisioning** — Refinitiv LSEG è preferibile come scelta unica: copre fondamentali (sostituisce yfinance stub) **e** news Reuters (sostituisce i feed RSS) con un solo contratto e SLA certificato MiFID II.
+
+**Perché i feed RSS attuali non sono enterprise-ready:**
+- Reuters RSS: uso commerciale/analitico richiede licenza Reuters Connect
+- Yahoo Finance RSS / MarketWatch RSS: ToS vietano uso automatizzato a fini commerciali
+- Investing.com ×2: già rimosso (ToS violazione esplicita)
 
 **File principali:** `shared/market_data/provider.py` (nuovo), `shared/audit.py` (migrazione a DB), `shared/tools/yfinance_tool.py` (refactoring), `shared/report.py`
 

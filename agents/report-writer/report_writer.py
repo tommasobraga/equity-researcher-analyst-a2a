@@ -4,6 +4,7 @@ Produce il report finale in italiano: executive summary + JSON strutturato.
 Include un passaggio di QA interno prima di restituire l'output.
 Mappa report_writer + qa_reviewer di CrewAI.
 """
+import copy
 import json
 import sys
 import time
@@ -167,7 +168,34 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     if is_demo_mode():
         demo = load_demo_response("report-writer")
-        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        input_data_demo: dict[str, Any] = {}
+        for part in task.message.parts:
+            if hasattr(part, "data"):
+                input_data_demo.update(part.data)
+        input_tickers = {c["ticker"] for c in input_data_demo.get("candidates", [])}
+        report = copy.deepcopy(demo["data"]["report"])
+        if input_tickers:
+            filtered = [c for c in report["candidati"] if c["ticker"] in input_tickers]
+            if filtered:
+                report["candidati"] = filtered
+        n = len(report["candidati"])
+        tickers_str = ", ".join(c["ticker"] for c in report["candidati"])
+        summary = (
+            f"Il report identifica {n} candidati equity ({tickers_str}) "
+            f"dalla pipeline di analisi. "
+            + demo["data"]["executive_summary"].split(". ", 1)[-1]
+            if ". " in demo["data"]["executive_summary"] else
+            f"Il report identifica {n} candidati equity ({tickers_str})."
+        )
+        result = A2ATaskResult.ok(
+            task.id,
+            summary,
+            data={
+                "report": report,
+                "executive_summary": summary,
+                "qa_verdict": demo["data"]["qa_verdict"],
+            },
+        )
         write_audit_event(make_audit_event(
             agent="ReportWriter", status="demo",
             correlation_id=correlation_id, model_id=_MODEL_REPORT,
@@ -186,9 +214,11 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     risk_assessment = input_data.get("risk_assessment", [])
     news = input_data.get("news", [])
     themes = input_data.get("themes", [])
+    prev_runs_ctx = input_data.get("previous_runs_context", "")
 
     user_prompt = (
-        f"Oggi è {today}.\n\n"
+        (f"CONTESTO RUN PRECEDENTI:\n{prev_runs_ctx}\n\n---\n\n" if prev_runs_ctx else "")
+        + f"Oggi è {today}.\n\n"
         f"NOTIZIE:\n{json.dumps(news, ensure_ascii=False)}\n\n"
         f"TEMI:\n{json.dumps(themes, ensure_ascii=False)}\n\n"
         f"CANDIDATI:\n{json.dumps(candidates, ensure_ascii=False)}\n\n"

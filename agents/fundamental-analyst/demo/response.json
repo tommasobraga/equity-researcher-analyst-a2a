@@ -1,32 +1,59 @@
 {
-  "message": "Identified 3 equity candidate(s).",
+  "message": "Identified 6 equity candidate(s).",
   "data": {
     "candidates": [
+      {
+        "ticker": "NVDA",
+        "company": "NVIDIA Corporation",
+        "market": "US",
+        "theme_id": "T1",
+        "thesis": "NVIDIA è il monopolista de facto dell'infrastruttura AI: oltre l'85% dei cluster GPU nei datacenter hyperscaler è Blackwell, e la sua piattaforma software CUDA crea un lock-in che nessun concorrente ha replicato in 15 anni. Il record di spedizioni Blackwell Ultra (N11) coincide con l'IEA che proietta $600bn di capex AI globale entro il 2027 (N15), confermando che la domanda è strutturale e non ciclica. Con un data center revenue guidance a $45bn FY2027 e margini lordi sopra il 75%, il re-rating verso multipli da piattaforma software è in corso.",
+        "catalyst": "Earnings Q2 FY2027 (agosto 2026) con primo contributo completo di Blackwell Ultra. Annuncio Rubin GPU architecture (presumibilmente settembre 2026, GTC Fall).",
+        "news_ids": ["N4", "N11", "N15"],
+        "fundamentals": {
+          "price": "1187.50",
+          "pe_ttm": "48.2",
+          "eps": "24.64",
+          "52w_range": "756.40-1418.00",
+          "analyst_target": "1380.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 62,
+          "strong_buy": 45,
+          "buy": 14,
+          "hold": 3,
+          "sell": 0,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.4",
+          "giudizio_sintetico": "Strong Buy — consenso più favorevole nell'universo coperto"
+        }
+      },
       {
         "ticker": "MSFT",
         "company": "Microsoft Corporation",
         "market": "US",
         "theme_id": "T1",
-        "thesis": "Microsoft è il principale beneficiario della spesa enterprise per AI, con Azure OpenAI Service che rappresenta l'unico percorso enterprise-grade verso i modelli frontier di OpenAI. La crescita di Azure AI del 33% YoY non riflette ancora la piena adozione dei contratti Copilot firmati nel 2025, che iniziano a generare ricavi ricorrenti nel Q3-Q4 2026. Il vantaggio competitivo è difendibile: l'integrazione con Office 365, Teams e Dynamics crea costi di switching proibitivi per le imprese già su M365.",
-        "catalyst": "Risultati Q4 FY2026 (luglio 2026) con primo riconoscimento completo dei ricavi Copilot Enterprise su contratti annuali. Espansione GA del modello o3 su Azure attesa entro agosto 2026.",
+        "thesis": "La tesi AI di Microsoft mostra crepe: la crescita Azure AI ha decelerato dal 33% al 19% YoY negli ultimi due trimestri, e l'adozione di Copilot Enterprise sulle PMI è inferiore alle aspettative. L'accordo esclusivo con OpenAI è sotto scrutinio antitrust UE. La valutazione a P/E 37.8x incorpora una crescita che i numeri recenti non supportano — il rischio di de-rating è materiale.",
+        "catalyst": "Earnings Q1 FY2027 (ottobre 2026) — un'ulteriore delusione sulla crescita Azure potrebbe fungere da trigger negativo. Eventuale decisione DG Comp sull'accordo OpenAI.",
         "news_ids": ["N1", "N9"],
         "fundamentals": {
           "price": "449.87",
           "pe_ttm": "37.8",
           "eps": "11.90",
           "52w_range": "344.79-468.35",
-          "analyst_target": "495.00"
+          "analyst_target": "460.00"
         },
         "analyst_consensus": {
           "total_analysts": 55,
-          "strong_buy": 30,
-          "buy": 18,
-          "hold": 6,
-          "sell": 1,
-          "strong_sell": 0,
-          "recommendation_key": "buy",
-          "recommendation_mean": "1.8",
-          "giudizio_sintetico": "Strong Buy — consenso largamente favorevole"
+          "strong_buy": 12,
+          "buy": 16,
+          "hold": 18,
+          "sell": 7,
+          "strong_sell": 2,
+          "recommendation_key": "hold",
+          "recommendation_mean": "2.9",
+          "giudizio_sintetico": "Hold — consenso frammentato, revisioni al ribasso in corso"
         }
       },
       {
@@ -54,6 +81,60 @@
           "recommendation_key": "buy",
           "recommendation_mean": "1.9",
           "giudizio_sintetico": "Buy — consensus positivo con upside al target del 23%"
+        }
+      },
+      {
+        "ticker": "ASML",
+        "company": "ASML Holding N.V.",
+        "market": "EU",
+        "theme_id": "T3",
+        "thesis": "ASML detiene il monopolio assoluto sui sistemi EUV e High-NA EUV, indispensabili per la produzione di chip avanzati a nodi inferiori a 3nm. Il backlog record a €47bn (N13) — equivalente a oltre 1.5 anni di revenue — fornisce visibilità eccezionale sulla crescita. Il secondo tranche dell'EU Chips Act (N14) aggiunge domanda strutturale europea a quella già garantita da TSMC N2 e Samsung. La posizione competitiva è inattaccabile per almeno un decennio data la complessità tecnologica dei sistemi High-NA.",
+        "catalyst": "Earnings Q2 2026 (luglio 2026) con aggiornamento backlog e prima guidance FY2027. Annunci ordini High-NA da Intel 18A ramp attesi Q3 2026.",
+        "news_ids": ["N7", "N13", "N14"],
+        "fundamentals": {
+          "price": "872.50",
+          "pe_ttm": "34.1",
+          "eps": "25.60",
+          "52w_range": "651.20-985.30",
+          "analyst_target": "1050.00"
+        },
+        "analyst_consensus": {
+          "total_analysts": 32,
+          "strong_buy": 18,
+          "buy": 10,
+          "hold": 4,
+          "sell": 0,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "1.6",
+          "giudizio_sintetico": "Strong Buy — monopolio EUV con backlog record"
+        }
+      },
+      {
+        "ticker": "ISP.MI",
+        "company": "Intesa Sanpaolo S.p.A.",
+        "market": "EU",
+        "theme_id": "T2",
+        "thesis": "Intesa Sanpaolo è la seconda banca europea per capitalizzazione e la più efficiente per cost/income ratio (38.5%). Il piano di payout all'80% con €5bn di buyback aggiuntivo (N12) offre un rendimento totale per gli azionisti superiore al 13% nel 2026. A differenza di UniCredit, l'esposizione geografica è più concentrata sull'Italia e Francia — minore rischio geopolitico CEE — con una base retail di 12M clienti che genera fee income resiliente.",
+        "catalyst": "Avvio del buyback €5bn dopo approvazione BCE (luglio 2026). Dividend stacco cedola semestrale atteso agosto 2026.",
+        "news_ids": ["N3", "N10", "N12"],
+        "fundamentals": {
+          "price": "4.08",
+          "pe_ttm": "8.1",
+          "eps": "0.503",
+          "52w_range": "3.14-4.45",
+          "analyst_target": "4.80"
+        },
+        "analyst_consensus": {
+          "total_analysts": 24,
+          "strong_buy": 10,
+          "buy": 9,
+          "hold": 4,
+          "sell": 1,
+          "strong_sell": 0,
+          "recommendation_key": "buy",
+          "recommendation_mean": "2.0",
+          "giudizio_sintetico": "Buy — consensus positivo con upside al target del 18%"
         }
       },
       {

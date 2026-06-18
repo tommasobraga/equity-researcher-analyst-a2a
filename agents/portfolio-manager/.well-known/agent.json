@@ -1,0 +1,14 @@
+{
+  "name": "PortfolioManager",
+  "version": "1.0.0",
+  "description": "Manages a fictional equity portfolio: buy/sell decisions based on analysis pipeline output (full mode), or standalone portfolio review (portfolio mode)",
+  "url": "http://localhost:8010",
+  "capabilities": ["portfolio_management", "trade_execution", "portfolio_review", "pnl_calculation"],
+  "input_schema": {
+    "pm_mode": "string — 'full' | 'portfolio'",
+    "portfolio_state": "dict — current portfolio (cash, positions, trade_history)",
+    "candidates": "list — from RiskAssessor (full mode only)",
+    "risk_assessment": "list — from RiskAssessor (full mode only)",
+    "report": "dict — from ReportWriter (full mode only)"
+  }
+}

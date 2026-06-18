@@ -1,0 +1,70 @@
+{
+  "message": "Portfolio full: 5 trade(s) eseguiti.",
+  "data": {
+    "pm_mode": "full",
+    "trades": [
+      {
+        "ticker": "NVDA",
+        "action": "BUY",
+        "shares": 8,
+        "price": 1187.50,
+        "reason": "Score 45/50, quality alta, monopolio GPU AI con domanda strutturale — allocazione 10% cash disponibile"
+      },
+      {
+        "ticker": "MSFT",
+        "action": "BUY",
+        "shares": 20,
+        "price": 449.87,
+        "reason": "Score 40/50, quality alta, catalizzatore Azure AI e ricavi Copilot in rampa"
+      },
+      {
+        "ticker": "UCG.MI",
+        "action": "BUY",
+        "shares": 193,
+        "price": 42.15,
+        "reason": "Score 40/50, quality alta, piano capital return 15% con buyback BCE atteso settembre 2026"
+      },
+      {
+        "ticker": "ASML",
+        "action": "BUY",
+        "shares": 9,
+        "price": 872.50,
+        "reason": "Score 38/50, quality alta, monopolio EUV con backlog record €47bn"
+      },
+      {
+        "ticker": "ISP.MI",
+        "action": "BUY",
+        "shares": 1605,
+        "price": 4.08,
+        "reason": "Score 36/50, quality alta, buyback €5bn e payout 80% con approvazione BCE imminente"
+      },
+      {
+        "ticker": "AAPL",
+        "action": "HOLD",
+        "shares": 0,
+        "price": 0.0,
+        "reason": "Score 33/50, quality media — sotto soglia BUY (35), nessuna posizione esistente da liquidare"
+      }
+    ],
+    "portfolio_update": {
+      "cash_before": 100000.0,
+      "cash_after": 58966.75,
+      "trades": [
+        { "ticker": "NVDA",   "action": "BUY", "shares": 8,    "price": 1187.50, "reason": "Score 45/50, quality alta, monopolio GPU AI" },
+        { "ticker": "MSFT",   "action": "BUY", "shares": 20,   "price": 449.87,  "reason": "Score 40/50, quality alta, catalizzatore Azure AI" },
+        { "ticker": "UCG.MI", "action": "BUY", "shares": 193,  "price": 42.15,   "reason": "Score 40/50, quality alta, capital return 15%" },
+        { "ticker": "ASML",   "action": "BUY", "shares": 9,    "price": 872.50,  "reason": "Score 38/50, quality alta, monopolio EUV" },
+        { "ticker": "ISP.MI", "action": "BUY", "shares": 1605, "price": 4.08,    "reason": "Score 36/50, quality alta, buyback €5bn" }
+      ],
+      "positions_before": [],
+      "positions_after": [
+        { "ticker": "NVDA",   "shares": 8,    "entry_price": 1187.50, "entry_date": "2026-06-18", "status": "open" },
+        { "ticker": "MSFT",   "shares": 20,   "entry_price": 449.87,  "entry_date": "2026-06-18", "status": "open" },
+        { "ticker": "UCG.MI", "shares": 193,  "entry_price": 42.15,   "entry_date": "2026-06-18", "status": "open" },
+        { "ticker": "ASML",   "shares": 9,    "entry_price": 872.50,  "entry_date": "2026-06-18", "status": "open" },
+        { "ticker": "ISP.MI", "shares": 1605, "entry_price": 4.08,    "entry_date": "2026-06-18", "status": "open" }
+      ]
+    },
+    "review": "Aperti 5 nuovi long: NVDA (8 azioni, ~9.5% portafoglio, score 45/50), MSFT (20 azioni, ~9.0%), UCG.MI (193 azioni, ~8.1%), ASML (9 azioni, ~7.9%), ISP.MI (1605 azioni, ~6.5%). AAPL mantenuto fuori portafoglio (score 33/50, sotto soglia BUY). Cash residuo: 58.966,75 USD (59.0% del portafoglio). Nessuna posizione overweight. Esposizione: 60% settore AI/Tech, 25% European Banking, 15% Semiconductor Equipment."
+  }
+}

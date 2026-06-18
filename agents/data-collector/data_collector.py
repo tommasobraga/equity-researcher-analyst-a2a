@@ -1,7 +1,7 @@
 """Data Collector agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8001.
 
 Riceve una lista di ticker equity via A2A e restituisce i fondamentali
-da yfinance per ciascun ticker.
+da provider certificato (Fase 5 pending — DEMO_MODE=true in sviluppo locale).
 """
 import asyncio
 import json
@@ -36,7 +36,7 @@ _TOOLS = [
     {
         "name": "fetch_fundamentals",
         "description": (
-            "Fetch real fundamental data for an equity ticker from yfinance. "
+            "Fetch fundamental data for an equity ticker (certified provider — Fase 5). "
             "Call this for each ticker individually. "
             "Input: ticker symbol, e.g. AAPL, UCG.MI, ASML.AS"
         ),
@@ -98,7 +98,17 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     if is_demo_mode():
         demo = load_demo_response("data-collector")
-        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        input_data_demo: dict = {}
+        for part in task.message.parts:
+            if hasattr(part, "data"):
+                input_data_demo.update(part.data)
+        input_tickers = set(input_data_demo.get("tickers", []))
+        all_fundamentals = demo["data"]["fundamentals"]
+        if input_tickers:
+            fundamentals = [f for f in all_fundamentals if f["ticker"] in input_tickers] or all_fundamentals
+        else:
+            fundamentals = all_fundamentals
+        result = A2ATaskResult.ok(task.id, demo["message"], data={"fundamentals": fundamentals})
         write_audit_event(make_audit_event(
             agent="DataCollector", status="demo",
             correlation_id=correlation_id, model_id=_MODEL_ID,

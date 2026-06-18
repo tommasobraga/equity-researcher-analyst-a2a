@@ -1,5 +1,5 @@
 {
-  "message": "Fetched 10 news items, identified 3 themes.",
+  "message": "Fetched 15 news items, identified 3 themes.",
   "data": {
     "news": [
       {
@@ -61,26 +61,56 @@
         "source": "MarketWatch",
         "headline": "European banking sector buybacks accelerate as ECB removes capital buffer requirements",
         "summary": "ECB removed remaining countercyclical capital buffer requirements for EU banks. Analysts expect €30bn in additional shareholder returns across European banking sector in 2026."
+      },
+      {
+        "id": "N11",
+        "source": "Reuters Markets",
+        "headline": "NVIDIA Blackwell Ultra shipments hit record as hyperscalers prioritize AI compute",
+        "summary": "NVIDIA shipped record Blackwell Ultra units in Q2 2026 with demand significantly outpacing supply. Data center revenue guidance raised to $45bn for FY2027 on AI infrastructure backlog."
+      },
+      {
+        "id": "N12",
+        "source": "Yahoo Finance",
+        "headline": "Intesa Sanpaolo raises dividend payout ratio to 80%, announces €5bn buyback for 2026",
+        "summary": "Intesa Sanpaolo announced an 80% cash dividend payout ratio and a €5bn share buyback program following BCE capital buffer removal. CET1 ratio at 13.9%, well above regulatory minimum."
+      },
+      {
+        "id": "N13",
+        "source": "MarketWatch",
+        "headline": "ASML reports record €47bn order backlog driven by TSMC, Samsung N2 node expansions",
+        "summary": "ASML disclosed its highest-ever order backlog at €47bn driven by High-NA EUV orders. Lead times for EUV systems extended to 24 months as global chip fabs accelerate advanced node investment."
+      },
+      {
+        "id": "N14",
+        "source": "Reuters Markets",
+        "headline": "EU Chips Act second tranche: €43bn unlocked for advanced semiconductor manufacturing in Europe",
+        "summary": "The European Commission approved the second tranche of the EU Chips Act, unlocking €43bn for advanced semiconductor fabs. ASML, Infineon and TSMC Europe among primary beneficiaries."
+      },
+      {
+        "id": "N15",
+        "source": "Yahoo Finance",
+        "headline": "AI data center buildout drives $600bn global infrastructure spend by 2027, IEA forecast",
+        "summary": "IEA revised AI infrastructure capex forecasts upward to $600bn globally by 2027. GPU compute, cooling and power infrastructure identified as highest-growth segments."
       }
     ],
     "themes": [
       {
         "id": "T1",
         "title": "AI Infrastructure & Enterprise Adoption",
-        "why_now": "Hyperscaler capex recovery and EU AI Act compliance spending create simultaneous demand-pull for AI infrastructure hardware and enterprise software platforms.",
-        "news_ids": ["N1", "N4", "N6", "N9"]
+        "why_now": "Hyperscaler capex recovery, record GPU demand and EU AI Act compliance spending create simultaneous demand-pull for AI infrastructure hardware and enterprise software platforms.",
+        "news_ids": ["N1", "N4", "N6", "N9", "N11", "N15"]
       },
       {
         "id": "T2",
         "title": "European Banking Capital Returns",
         "why_now": "ECB rate cut trajectory combined with removal of capital buffers enables record shareholder returns from European banks trading at deep discounts to US peers.",
-        "news_ids": ["N3", "N5", "N8", "N10"]
+        "news_ids": ["N3", "N5", "N8", "N10", "N12"]
       },
       {
         "id": "T3",
         "title": "Semiconductor Supercycle — Advanced Node Ramp",
-        "why_now": "TSMC N2 production ramp and Blackwell supply normalization mark the beginning of the next semiconductor capex cycle with equipment makers as primary beneficiaries.",
-        "news_ids": ["N4", "N7"]
+        "why_now": "TSMC N2 production ramp, record ASML backlog and EU Chips Act funding mark the beginning of the next semiconductor capex cycle with equipment makers as primary beneficiaries.",
+        "news_ids": ["N4", "N7", "N11", "N13", "N14"]
       }
     ]
   }

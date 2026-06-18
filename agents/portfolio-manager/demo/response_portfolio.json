@@ -1,0 +1,9 @@
+{
+  "message": "Portfolio review completed.",
+  "data": {
+    "pm_mode": "portfolio",
+    "trades": [],
+    "portfolio_update": {},
+    "review": "Portfolio review: 0 open positions, 100,000.00 USD cash (100% undeployed). No active exposure. No overweight flags."
+  }
+}

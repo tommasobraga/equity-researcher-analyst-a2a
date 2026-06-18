@@ -38,7 +38,7 @@ _TOOLS = [
     {
         "name": "fetch_fundamentals",
         "description": (
-            "Fetch real fundamental data for a stock ticker from yfinance. "
+            "Fetch fundamental data for a stock ticker (certified provider — Fase 5). "
             "Use this for each candidate to get price, P/E, EPS, 52-week range, "
             "analyst target and consensus. Input: ticker symbol, e.g. AAPL, UCG.MI, ASML.AS"
         ),
@@ -123,7 +123,24 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
     if is_demo_mode():
         demo = load_demo_response("fundamental-analyst")
-        result = A2ATaskResult.ok(task.id, demo["message"], data=demo["data"])
+        # Filter demo candidates to tickers actually present in the input fundamentals.
+        # When no fundamentals are provided (news-driven mode), return all candidates —
+        # the orchestrator's MAX_CANDIDATES_PAYLOAD cap will apply downstream.
+        input_data_demo: dict[str, Any] = {}
+        for part in task.message.parts:
+            if hasattr(part, "data"):
+                input_data_demo.update(part.data)
+        input_tickers = {f["ticker"] for f in input_data_demo.get("fundamentals", [])}
+        all_candidates = demo["data"]["candidates"]
+        if input_tickers:
+            candidates = [c for c in all_candidates if c["ticker"] in input_tickers] or all_candidates
+        else:
+            candidates = all_candidates
+        result = A2ATaskResult.ok(
+            task.id,
+            f"Identified {len(candidates)} equity candidate(s).",
+            data={"candidates": candidates},
+        )
         write_audit_event(make_audit_event(
             agent="FundamentalAnalyst", status="demo",
             correlation_id=correlation_id, model_id=_MODEL_ID,
@@ -141,8 +158,21 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     themes_text = json.dumps(input_data.get("themes", []), ensure_ascii=False)
     fundamentals_hint = json.dumps(input_data.get("fundamentals", []), ensure_ascii=False)
 
+    history_parts = []
+    for snip in input_data.get("ticker_history_fundamental", {}).values():
+        if snip:
+            history_parts.append(snip)
+    for snip in input_data.get("ticker_history_risk", {}).values():
+        if snip:
+            history_parts.append(snip)
+    runs_ctx = input_data.get("previous_runs_context", "")
+    if runs_ctx:
+        history_parts.append(runs_ctx)
+    history_block = "\n\n".join(history_parts)
+
     user_prompt = (
-        f"NEWS ITEMS:\n{news_text}\n\n"
+        (f"HISTORICAL CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
+        + f"NEWS ITEMS:\n{news_text}\n\n"
         f"MARKET THEMES:\n{themes_text}\n\n"
         f"PRE-FETCHED FUNDAMENTALS (use as starting point, verify with tool if needed):\n{fundamentals_hint}\n\n"
         "Now identify the best candidates and return the JSON array."
