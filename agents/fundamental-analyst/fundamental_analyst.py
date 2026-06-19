@@ -157,6 +157,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     news_text = json.dumps(input_data.get("news", []), ensure_ascii=False)
     themes_text = json.dumps(input_data.get("themes", []), ensure_ascii=False)
     fundamentals_hint = json.dumps(input_data.get("fundamentals", []), ensure_ascii=False)
+    rag_context = input_data.get("rag_context", "")
 
     history_parts = []
     for snip in input_data.get("ticker_history_fundamental", {}).values():
@@ -171,7 +172,8 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     history_block = "\n\n".join(history_parts)
 
     user_prompt = (
-        (f"HISTORICAL CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
+        (f"INTERNAL KNOWLEDGE BASE (investment policy, sector notes, methodology):\n{rag_context}\n\n---\n\n" if rag_context else "")
+        + (f"HISTORICAL CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
         + f"NEWS ITEMS:\n{news_text}\n\n"
         f"MARKET THEMES:\n{themes_text}\n\n"
         f"PRE-FETCHED FUNDAMENTALS (use as starting point, verify with tool if needed):\n{fundamentals_hint}\n\n"

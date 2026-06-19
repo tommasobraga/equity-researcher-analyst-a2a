@@ -58,6 +58,7 @@ from shared.agent_memory import (
     write_ticker_analysis,
 )
 from shared.portfolio_db import init_db, load_portfolio_state, save_portfolio_state
+from shared.rag_retriever import retrieve_context
 from shared.report import generate_html
 
 log = structlog.get_logger()
@@ -100,6 +101,7 @@ class PipelineState(TypedDict):
     degraded: dict          # {component: error_message}
     portfolio_state: dict   # loaded from SQLite by node_portfolio_loader
     portfolio_result: dict  # output from PortfolioManager agent
+    rag_context: str        # retrieved from data/rag/documents/ — injected into FA prompt
     ticker_history: dict    # {ticker: {"fundamental": [...], "risk": [...]}} — loaded before FA
     previous_runs: list     # recent run_summaries — loaded before FA
 
@@ -295,10 +297,7 @@ def _route_from_router(state: PipelineState) -> str | list:
     mode = state["mode"]
     if mode == "portfolio":
         return "portfolio_loader"
-    if state["tickers"]:
-        return [Send("data_collector", state), Send("news_sentiment", state)]
-    # No tickers: news-driven mode — data_collector returns immediately with empty fundamentals
-    return [Send("data_collector", state), Send("news_sentiment", state)]
+    return [Send("data_collector", state), Send("news_sentiment", state), Send("rag_retriever", state)]
 
 
 def _route_after_fundamental(state: PipelineState) -> str:
@@ -396,6 +395,22 @@ async def node_news_sentiment(state: PipelineState) -> dict:
     return {"news": news, "themes": themes}
 
 
+async def node_rag_retriever(state: PipelineState) -> dict:
+    print("\n[RAG] RAGRetriever ← querying internal knowledge base")
+    query_terms = list(state.get("tickers", []))
+    if not query_terms:
+        query_terms = ["technology", "AI", "banking", "semiconductors", "software"]
+    try:
+        context = await asyncio.to_thread(retrieve_context, query_terms)
+        n_chunks = context.count("[Source:") if context else 0
+        print(f"      → {n_chunks} chunk(s) retrieved")
+        return {"rag_context": context}
+    except Exception as e:
+        log.warning("node.degraded", node="rag_retriever", error=str(e))
+        print(f"      ⚠ RAGRetriever non disponibile — pipeline continua senza context ({e})")
+        return {"rag_context": "", "degraded": {**state.get("degraded", {}), "rag_retriever": str(e)}}
+
+
 async def node_fundamental_analyst(state: PipelineState) -> dict:
     print(f"\n[3/5] FundamentalAnalyst ← {len(state['news'])} news, {len(state['themes'])} themes")
 
@@ -425,6 +440,7 @@ async def node_fundamental_analyst(state: PipelineState) -> dict:
             "news": state["news"],
             "themes": state["themes"],
             "fundamentals": state["fundamentals"],
+            "rag_context": state.get("rag_context", ""),
             "ticker_history_fundamental": fa_snippets,
             "ticker_history_risk": ra_snippets,
             "previous_runs_context": runs_ctx,
@@ -625,6 +641,7 @@ def _build_graph_builder() -> StateGraph:
     builder.add_node("router",               node_router)
     builder.add_node("data_collector",       node_data_collector)
     builder.add_node("news_sentiment",       node_news_sentiment)
+    builder.add_node("rag_retriever",        node_rag_retriever)
     builder.add_node("fundamental_analyst",  node_fundamental_analyst)
     builder.add_node("risk_assessor",        node_risk_assessor)
     builder.add_node("report_writer",        node_report_writer)
@@ -637,9 +654,10 @@ def _build_graph_builder() -> StateGraph:
     # Router: fan-out to analysis branch OR go straight to portfolio branch
     builder.add_conditional_edges("router", _route_from_router)
 
-    # Analysis branch: fan-in at fundamental_analyst (waits for both predecessors)
+    # Analysis branch: fan-in at fundamental_analyst (waits for all three predecessors)
     builder.add_edge("data_collector",      "fundamental_analyst")
     builder.add_edge("news_sentiment",      "fundamental_analyst")
+    builder.add_edge("rag_retriever",       "fundamental_analyst")
 
     # Conditional fail-fast after fundamental_analyst
     builder.add_conditional_edges(
@@ -691,6 +709,7 @@ async def run_pipeline(
         "degraded": {},
         "portfolio_state": {},
         "portfolio_result": {},
+        "rag_context": "",
         "ticker_history": {},
         "previous_runs": [],
     }
