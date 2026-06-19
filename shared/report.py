@@ -40,14 +40,32 @@ def _parse_corrections(qa_verdict: str) -> list[Correction]:
         return []
 
 
-def _parse_report(report_dict: dict) -> tuple[Report | None, bool]:
-    """Validate report dict into Pydantic model."""
+def _parse_report(report_dict: dict) -> tuple[Report | None, list[Violation]]:
     if not report_dict:
-        return None, True
+        return None, [Violation(
+            rule="report_parsable", severity="error", ticker=None,
+            message="Report is not parseable: JSON missing, truncated or malformed.",
+        )]
     try:
-        return Report.model_validate(report_dict), False
-    except ValidationError:
-        return None, True
+        return Report.model_validate(report_dict), []
+    except ValidationError as exc:
+        violations = []
+        for err in exc.errors():
+            loc = err["loc"]
+            ticker = None
+            if len(loc) >= 2 and loc[0] == "candidati" and isinstance(loc[1], int):
+                try:
+                    ticker = report_dict["candidati"][loc[1]].get("ticker")
+                except (KeyError, IndexError, AttributeError):
+                    pass
+            loc_str = " -> ".join(str(x) for x in loc)
+            violations.append(Violation(
+                rule="schema_violation",
+                severity="error",
+                ticker=ticker,
+                message=f"{loc_str}: {err['msg']} (got: {err.get('input', '?')})",
+            ))
+        return None, violations
 
 
 _DISPLAY_CORRECTION_PREFIXES = ("scoring.", "consenso_analisti.")
@@ -90,7 +108,8 @@ def generate_html(
     run_id: str | None = None,
     judgment: dict | None = None,
 ) -> tuple[Path, list[Violation]]:
-    report, json_failed = _parse_report(report_dict)
+    report, parse_violations = _parse_report(report_dict)
+    json_failed = report is None
     now = datetime.now()
     timestamp = run_id or now.strftime("%Y%m%d_%H%M%S")
     label = now.strftime("%d %B %Y, %H:%M")
@@ -115,7 +134,7 @@ def generate_html(
         "Universo": "US & EU Equity",
     }
 
-    violations = validate(report)
+    violations = parse_violations + validate(report)
 
     template = _JINJA_ENV.get_template("report.html.j2")
     html = template.render(
