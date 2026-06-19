@@ -342,14 +342,28 @@ async def node_data_collector(state: PipelineState) -> dict:
 
     ticker_list = ", ".join(state["tickers"])
     print(f"\n[1/5] DataCollector ← {ticker_list}")
-    result = await send_task_with_retry(
-        "data_collector",
-        f"Fetch fundamental data for: {ticker_list}. Return a JSON array.",
-        data={"tickers": state["tickers"]},
-        correlation_id=state["run_id"],
-    )
+    try:
+        result = await send_task_with_retry(
+            "data_collector",
+            f"Fetch fundamental data for: {ticker_list}. Return a JSON array.",
+            data={"tickers": state["tickers"]},
+            correlation_id=state["run_id"],
+        )
+    except (AgentUnavailableError, AgentTimeoutError, RateLimitError) as e:
+        log.warning("node.degraded", node="data_collector", error=str(e))
+        print(f"      ⚠ DataCollector unavailable — analysis will proceed on news/themes only ({e})")
+        return {
+            "fundamentals": [],
+            "degraded": {**state.get("degraded", {}), "data_collector": str(e)},
+        }
+
     if result.status == "failed":
-        raise RuntimeError(f"DataCollector failed: {result.message.text()}")
+        log.warning("node.degraded", node="data_collector", error=result.message.text())
+        print("      ⚠ DataCollector failed — analysis will proceed on news/themes only")
+        return {
+            "fundamentals": [],
+            "degraded": {**state.get("degraded", {}), "data_collector": result.message.text()},
+        }
 
     fundamentals = _extract_data(result, "fundamentals")
     if fundamentals is None:
