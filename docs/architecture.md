@@ -2,7 +2,7 @@
 
 ## 1. Workflow Diagram
 
-The three selectable workflows via `mode`. Each node includes the LLM model, exposed tools, and functional scope.
+The three selectable workflows via `mode`. Gate nodes (yellow) validate each agent's output before it enters the next stage. Soft gates (data_collector, news_sentiment) always pass and only normalise via Pydantic. Hard gates (fundamental_analyst, risk_assessor, report_writer) can fail-fast or trigger a reflection retry (max 1) with structured feedback injected into the agent prompt.
 
 ```mermaid
 flowchart TD
@@ -11,6 +11,7 @@ flowchart TD
     classDef infra  fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef store  fill:#fef9c3,stroke:#ca8a04,color:#713f12
     classDef term   fill:#f1f5f9,stroke:#94a3b8,color:#334155
+    classDef gate   fill:#fde68a,stroke:#d97706,color:#78350f
 
     START(["Orchestrator API :8000"]):::infra
     START --> MODE{mode}:::term
@@ -18,25 +19,35 @@ flowchart TD
     MODE -->|"analyze / full"| DC & NS & RAG
     MODE -->|portfolio| PL
 
-    DC["DataCollector :8001<br/>Haiku 4.5 · ReAct"]:::haiku
+    DC["DataCollector :8001<br/>Haiku 4.5 · ReAct<br/><i>soft fail → degraded</i>"]:::haiku
     NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct"]:::haiku
-    RAG["RAGRetriever<br/>TF-IDF · locale"]:::infra
+    RAG["RAGRetriever<br/>TF-IDF · local"]:::infra
 
-    DC & NS & RAG --> FA
+    DC --> GDC["gate_dc<br/>soft"]:::gate
+    NS --> GNS["gate_ns<br/>soft"]:::gate
+
+    GDC & GNS & RAG --> FA
 
     FA["FundamentalAnalyst :8003<br/>Sonnet 4.6 · ReAct"]:::sonnet
+    FA --> GFA["gate_fa<br/>hard"]:::gate
 
-    FA -->|"0 candidati"| STOP(["fail-fast"]):::term
-    FA -->|"1-3 candidati"| RA
+    GFA -->|"FAIL"| STOP(["fail-fast"]):::term
+    GFA -->|"PASS"| RA
 
     RA["RiskAssessor :8004<br/>Sonnet 4.6 · ReAct"]:::sonnet
+    RA --> GRA["gate_ra<br/>hard · retry max 1"]:::gate
 
-    RA --> RW
+    GRA -->|"FAIL"| STOP
+    GRA -->|"RETRY"| RA
+    GRA -->|"PASS"| RW
 
     RW["ReportWriter :8009<br/>Sonnet 4.6 · direct"]:::sonnet
+    RW --> GRW["gate_rw<br/>hard · retry max 1"]:::gate
 
-    RW -->|"mode=analyze"| OUT_A(["Report finale"]):::infra
-    RW -->|"mode=full"| PL
+    GRW -->|"FAIL"| STOP
+    GRW -->|"RETRY"| RW
+    GRW -->|"PASS · mode=analyze"| OUT_A(["Report finale"]):::infra
+    GRW -->|"PASS · mode=full"| PL
 
     PL[("portfolio.db")]:::store
     PL --> PM
@@ -60,6 +71,7 @@ graph TB
     classDef ext     fill:#f0fdf4,stroke:#16a34a,color:#14532d
     classDef orc     fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef pending fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
+    classDef gate    fill:#fde68a,stroke:#d97706,color:#78350f
 
     subgraph EXTERNAL ["Esterni"]
         LLM_P["LLM Provider<br/>bedrock · vertex · azure · local"]:::ext
@@ -70,7 +82,9 @@ graph TB
     subgraph ORCHESTRATOR ["Orchestrator :8000"]
         API["api.py — FastAPI"]:::orc
         GRAPH["main.py — LangGraph PipelineState"]:::orc
+        GATES["gates.py — 5 gate nodes<br/>soft + hard + retry"]:::gate
         API --> GRAPH
+        GRAPH --> GATES
     end
 
     subgraph AGENTS ["Agent Layer — A2A JSON-RPC 2.0"]
@@ -94,6 +108,8 @@ graph TB
         PORT_DB["portfolio_db.py"]:::shared
         MEM["agent_memory.py"]:::shared
         RAG_RET["rag_retriever.py — retrieve_context()"]:::shared
+        PIPE_MDL["pipeline_models.py — intermediate Pydantic models"]:::shared
+        VALIDATORS["validators.py — deterministic constraints"]:::shared
     end
 
     subgraph STORAGE ["Storage"]
@@ -119,6 +135,9 @@ graph TB
     NS --> SANITIZE
     PM & GRAPH --> PORT_DB
     DC & NS & FA & RA & RW & PM --> MEM
+
+    GATES --> PIPE_MDL
+    GATES --> VALIDATORS
 
     LLC --> LLM_P
     TOOLS -->|"rss_feed.py"| RSS_P
@@ -147,3 +166,5 @@ graph TB
 | RAG Documents | 11 synthetic documents in `data/rag/documents/` | Replace with real internal documentation |
 | Auth | optional inter-agent HMAC | Phase 5: mutual TLS or API gateway |
 | Orchestrator | deterministic LangGraph | LLM-ready: replace node bodies with `react_loop()` |
+| Validation Gates | operational — soft (DC, NS) + hard with reflection retry (FA, RA, RW) | Extend retry budget or add fallback agents in Phase 5 |
+| DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
