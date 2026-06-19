@@ -1,17 +1,17 @@
-"""LLM Judge — grounding e coerenza semantica del report.
+"""LLM Judge — report grounding and semantic consistency check.
 
-Layer di validazione indipendente dal ReportWriter: verifica che le affermazioni
-del report siano tracciabili al materiale sorgente (news, fondamentali, RAG context).
+Independent validation layer separate from ReportWriter: verifies that report
+claims are traceable to source material (news, fundamentals, RAG context).
 
-Differenza rispetto al QA pass interno di ReportWriter:
-  - QA pass: auto-revisione (stessa classe di agente che ha generato il report)
-  - LLM Judge: prospettiva indipendente, accesso ai sorgenti originali
+Difference from ReportWriter's internal QA pass:
+  - QA pass: self-review (same agent class that generated the report)
+  - LLM Judge: independent perspective, access to original source material
 
-Fase attuale: Anthropic SDK diretto (stesso pattern di ReportWriter).
-In DEMO_MODE restituisce PASS simulato senza chiamata LLM.
+Current phase: direct Anthropic SDK (same pattern as ReportWriter).
+In DEMO_MODE returns a simulated PASS without any LLM call.
 
-Upgrade path: nessuna modifica all'interfaccia pubblica (run_judge) per
-switchare modello o aggiungere tool-use di grounding.
+Upgrade path: public interface (run_judge) is stable — switch model or add
+grounding tool-use without touching callers.
 """
 import json
 import time
@@ -106,17 +106,17 @@ async def run_judge(
     model: str = _MODEL_ID,
     correlation_id: str | None = None,
 ) -> JudgmentResult:
-    """Esegue il grounding check del report contro i sorgenti originali.
+    """Run grounding check of the report against original source material.
 
-    In DEMO_MODE restituisce PASS simulato senza chiamata LLM.
-    In caso di errore restituisce WARN con degraded flag — non blocca la pipeline.
+    In DEMO_MODE returns a simulated PASS without any LLM call.
+    On error returns WARN — pipeline continues in degraded mode.
     """
     if is_demo_mode():
         result = JudgmentResult(
             verdict="PASS",
             grounding_score=95,
             issues=[],
-            summary="Demo mode: grounding check simulato. Report conforme alle linee guida di investimento.",
+            summary="Demo mode: simulated grounding check. Report compliant with investment guidelines.",
             demo=True,
         )
         log.info("judge.demo", correlation_id=correlation_id)
@@ -127,8 +127,8 @@ async def run_judge(
             verdict="WARN",
             grounding_score=0,
             issues=[{"type": "unsupported_claim", "ticker": None,
-                     "detail": "Report assente o non parsabile — grounding non eseguibile"}],
-            summary="Report assente. Impossibile valutare il grounding.",
+                     "detail": "Report missing or unparseable — grounding check cannot run"}],
+            summary="Report missing. Cannot evaluate grounding.",
         )
 
     t0 = time.monotonic()
@@ -146,7 +146,7 @@ async def run_judge(
         start = raw.find("{")
         end = raw.rfind("}") + 1
         if start == -1 or end <= start:
-            raise ValueError("Nessun oggetto JSON nel verdict del judge")
+            raise ValueError("No JSON object found in judge verdict")
         data = json.loads(raw[start:end])
 
         result = JudgmentResult(
@@ -171,6 +171,6 @@ async def run_judge(
             verdict="WARN",
             grounding_score=50,
             issues=[{"type": "unsupported_claim", "ticker": None,
-                     "detail": f"Errore judge: {e}"}],
-            summary=f"Valutazione non completata ({e}). Pipeline continua in modalità degradata.",
+                     "detail": f"Judge error: {e}"}],
+            summary=f"Evaluation incomplete ({e}). Pipeline continues in degraded mode.",
         )

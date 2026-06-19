@@ -1,7 +1,6 @@
-"""Input sanitization — difesa da prompt injection su contenuti RSS non fidati.
+"""Input sanitization — defense against prompt injection from untrusted RSS content.
 
-Applicare a qualsiasi testo proveniente da fonti esterne prima che
-raggiunga un prompt LLM.
+Apply to any text from external sources before it reaches an LLM prompt.
 """
 import re
 import unicodedata
@@ -11,14 +10,14 @@ import bleach
 _MAX_TITLE_LEN = 200
 _MAX_SUMMARY_LEN = 500
 
-# Caratteri di controllo Unicode (eccetto newline e tab normali)
+# Unicode control characters (except normal newline and tab)
 _CONTROL_CHARS_RE = re.compile(
-    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f"   # C0 controls (esclusi \t=0x09, \n=0x0a)
+    r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f"   # C0 controls (excluding \t=0x09, \n=0x0a)
     r"\x80-\x9f"                            # C1 controls
     r"​-‏‪-‮﻿]",  # zero-width, bidi overrides, BOM
 )
 
-# Pattern di prompt injection comuni nei feed RSS malevoli
+# Common prompt injection patterns found in malicious RSS feeds
 _INJECTION_PATTERNS_RE = re.compile(
     r"(ignore\s+(previous|prior|all)\s+instructions?|"
     r"system\s*:|<\s*/?system\s*>|"
@@ -34,7 +33,7 @@ def _strip_html(text: str) -> str:
 
 def _remove_control_chars(text: str) -> str:
     text = _CONTROL_CHARS_RE.sub(" ", text)
-    # Normalizza anche caratteri Unicode omoglifi e varianti di spazio
+    # Also normalize Unicode homoglyphs and space variants
     return unicodedata.normalize("NFKC", text)
 
 

@@ -127,7 +127,7 @@ def format_fundamental_history(ticker: str, history: list[dict]) -> str:
     """Compact bullet list of past fundamental analyses for a ticker."""
     if not history:
         return ""
-    lines = [f"STORICO ANALISI FONDAMENTALE - {ticker} (ultimi {len(history)} run):"]
+    lines = [f"FUNDAMENTAL ANALYSIS HISTORY - {ticker} (last {len(history)} run(s)):"]
     for rec in history:
         date_str = rec["created_at"][:10]
         d = rec["data"]
@@ -135,7 +135,7 @@ def format_fundamental_history(ticker: str, history: list[dict]) -> str:
         catalyst = (d.get("catalyst") or "")[:150]
         price = (d.get("fundamentals") or {}).get("price", "")
         pe = (d.get("fundamentals") or {}).get("pe_ttm", "")
-        meta = f"  prezzo: {price}, P/E: {pe}" if price or pe else ""
+        meta = f"  price: {price}, P/E: {pe}" if price or pe else ""
         lines.append(f"• {date_str}{meta}")
         if thesis:
             lines.append(f"  thesis: {thesis}")
@@ -148,7 +148,7 @@ def format_risk_history(ticker: str, history: list[dict]) -> str:
     """Compact bullet list of past risk assessments for a ticker."""
     if not history:
         return ""
-    lines = [f"STORICO RISK ASSESSMENT - {ticker} (ultimi {len(history)} run):"]
+    lines = [f"RISK ASSESSMENT HISTORY - {ticker} (last {len(history)} run(s)):"]
     for rec in history:
         date_str = rec["created_at"][:10]
         d = rec["data"]
@@ -169,13 +169,13 @@ def format_run_summaries(summaries: list[dict]) -> str:
     """Compact list of recent pipeline runs for cross-run context."""
     if not summaries:
         return ""
-    lines = [f"ULTIMI {len(summaries)} RUN PRECEDENTI:"]
+    lines = [f"LAST {len(summaries)} PREVIOUS RUN(S):"]
     for s in summaries:
         date_str = s["created_at"][:10]
         mode = s["mode"]
         tickers_str = ", ".join(s.get("tickers") or [])
         candidates_str = ", ".join(s.get("candidates") or [])
-        lines.append(f"- {date_str} [{mode}]  analizzati: {tickers_str}  |  candidati: {candidates_str}")
+        lines.append(f"- {date_str} [{mode}]  analyzed: {tickers_str}  |  candidates: {candidates_str}")
         trades = s.get("trades") or []
         if trades:
             trade_str = ", ".join(f"{t.get('action','?')} {t.get('ticker','?')}" for t in trades)

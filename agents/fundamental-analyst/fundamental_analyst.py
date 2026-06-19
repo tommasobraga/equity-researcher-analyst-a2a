@@ -1,8 +1,8 @@
-"""Fundamental Analyst agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8003.
+"""Fundamental Analyst agent — Anthropic SDK (native ReAct) + FastAPI, port 8003.
 
-Riceve news/temi dal News & Sentiment e fondamentali dal Data Collector,
-identifica fino a 3 candidati equity con tesi d'investimento specifica.
-Sostituisce BeeAI ReActAgent con react_loop nativo Anthropic SDK.
+Receives news/themes from News & Sentiment and fundamentals from Data Collector,
+identifies up to 3 equity candidates with a specific investment thesis.
+Replaces BeeAI ReActAgent with native Anthropic SDK react_loop.
 """
 import asyncio
 import json

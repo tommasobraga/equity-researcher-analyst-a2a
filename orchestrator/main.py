@@ -1,22 +1,21 @@
 """Orchestrator — LangGraph pipeline v3.
 
-Tre workflow selezionabili via parametro mode:
+Three selectable workflows via the mode parameter:
 
-  analyze   — fan-out parallelo data_collector + news_sentiment
+  analyze   — parallel fan-out data_collector + news_sentiment
               → fundamental_analyst → risk_assessor → report_writer → END
 
   portfolio — portfolio_loader → portfolio_manager → END
 
-  full      — analyze sequenziale → portfolio_loader → portfolio_manager → END
+  full      — analyze pipeline → portfolio_loader → portfolio_manager → END
 
-Routing deterministico oggi (conditional edges su valori dello stato).
-Pronto per routing LLM-based quando il cloud provider sarà disponibile:
-le funzioni _route_* ricevono PipelineState — basterà sostituire la logica
-con una chiamata a react_loop() senza toccare il grafo.
+Routing is deterministic today (conditional edges on state values).
+LLM-based routing ready: _route_* functions receive full PipelineState —
+replace body with react_loop() call when cloud provider is available.
 
-Fase 3: retry strutturato (tenacity), circuit breaker custom,
-        LangGraph checkpointing (SQLite), graceful degradation,
-        payload windowing.
+Phase 3: structured retry (tenacity), custom circuit breaker,
+         LangGraph checkpointing (SQLite), graceful degradation,
+         payload windowing.
 """
 import asyncio
 import json
@@ -115,8 +114,8 @@ class PipelineState(TypedDict):
 class _CircuitBreaker:
     """Lightweight async-compatible circuit breaker.
 
-    Apre dopo fail_max failures consecutive; si richiude dopo reset_timeout secondi.
-    Implementazione in-house su time.monotonic(), zero dipendenze aggiuntive.
+    Opens after fail_max consecutive failures; resets after reset_timeout seconds.
+    In-house implementation on time.monotonic(), no extra dependencies.
     """
 
     def __init__(self, fail_max: int = 3, reset_timeout: float = 300.0):
@@ -331,7 +330,7 @@ async def node_router(state: PipelineState) -> dict:
     print(f"  EQUITY RESEARCHER A2A — LangGraph Pipeline v3")
     print(f"  run_id: {state['run_id']}  mode: {mode.upper()}")
     if is_demo_mode():
-        print("  mode:   DEMO (nessuna chiamata LLM)")
+        print("  mode:   DEMO (no LLM calls)")
     print(f"{'='*60}")
     return {}
 
@@ -380,7 +379,7 @@ async def node_news_sentiment(state: PipelineState) -> dict:
         )
     except (AgentUnavailableError, AgentTimeoutError, RateLimitError) as e:
         log.warning("node.degraded", node="news_sentiment", error=str(e))
-        print(f"      ⚠ NewsSentiment non disponibile — pipeline continua senza news ({e})")
+        print(f"      ⚠ NewsSentiment unavailable — pipeline continues without news ({e})")
         return {
             "news": [],
             "themes": [],
@@ -388,7 +387,7 @@ async def node_news_sentiment(state: PipelineState) -> dict:
         }
 
     if result.status == "failed":
-        print("      ⚠ NewsSentiment failed — pipeline continua senza news")
+        print("      ⚠ NewsSentiment failed — pipeline continues without news")
         return {
             "news": [],
             "themes": [],
@@ -413,7 +412,7 @@ async def node_rag_retriever(state: PipelineState) -> dict:
         return {"rag_context": context}
     except Exception as e:
         log.warning("node.degraded", node="rag_retriever", error=str(e))
-        print(f"      ⚠ RAGRetriever non disponibile — pipeline continua senza context ({e})")
+        print(f"      ⚠ RAGRetriever unavailable — pipeline continues without context ({e})")
         return {"rag_context": "", "degraded": {**state.get("degraded", {}), "rag_retriever": str(e)}}
 
 
@@ -756,7 +755,7 @@ async def run_pipeline(
         icon = "✓" if agent_status["status"] == "ok" else "✗"
         print(f"  {icon} {agent_name}: {agent_status['status']}")
     if health["status"] == "degraded":
-        print("\n  ⚠ Uno o più agenti non raggiungibili. Verificare che siano avviati.")
+        print("\n  ⚠ One or more agents unreachable. Make sure they are running.")
     print()
 
     t0 = time.time()
@@ -769,7 +768,7 @@ async def run_pipeline(
 
     degraded = final_state.get("degraded", {})
     if degraded:
-        print("\n  ⚠ Componenti degradati durante la run:")
+        print("\n  ⚠ Degraded components during this run:")
         for component, reason in degraded.items():
             print(f"    - {component}: {reason}")
 
@@ -794,14 +793,14 @@ async def run_pipeline(
             execution_seconds=execution_seconds,
             judgment=final_state.get("judgment"),
         )
-        print(f"\nReport HTML salvato in: {report_path}")
+        print(f"\nHTML report saved to: {report_path}")
         if violations:
             errors = [v for v in violations if v.severity == "error"]
             warnings = [v for v in violations if v.severity == "warning"]
             if errors:
-                print(f"  ⚠  {len(errors)} errore/i critico/i nel report")
+                print(f"  ⚠  {len(errors)} critical error(s) in the report")
             if warnings:
-                print(f"  ℹ  {len(warnings)} avvertimento/i di qualità")
+                print(f"  ℹ  {len(warnings)} quality warning(s)")
         webbrowser.open(report_path.as_uri())
 
         result.update({
@@ -860,7 +859,7 @@ if __name__ == "__main__":
                 if pm.get("trades_executed"):
                     print(f"\n=== TRADES EXECUTED ({len(trades)}) ===")
                 else:
-                    print(f"\n=== TRADES PROPOSED — non eseguiti ({len(trades)}) ===")
+                    print(f"\n=== TRADES PROPOSED — not executed ({len(trades)}) ===")
                 for t in trades:
                     print(f"  {t['action']} {t['shares']}x {t['ticker']} @ {t['price']} — {t.get('reason', '')}")
 
@@ -868,4 +867,4 @@ if __name__ == "__main__":
         Path(args.output).write_text(
             json.dumps(result, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        print(f"\nRisultato salvato in: {args.output}")
+        print(f"\nResult saved to: {args.output}")

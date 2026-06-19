@@ -1,352 +1,352 @@
-# Piano di Evoluzione Enterprise — Equity Researcher A2A
+# Enterprise Evolution Plan — Equity Researcher A2A
 
-## Baseline Architetturale (stato pre-evoluzione — 16 giugno 2026)
+## Architectural Baseline (pre-evolution state — 16 June 2026)
 
-> Questa sezione documenta l'architettura originale e i rischi identificati che hanno guidato la definizione delle fasi. Incorpora i contenuti dell'architectural-review condotta al momento del kick-off enterprise.
+> This section documents the original architecture and the identified risks that guided the phase definitions. It incorporates the architectural review conducted at the enterprise kick-off.
 
-### Architettura originale (stack pre-migrazione)
+### Original architecture (pre-migration stack)
 
-| Componente | Tecnologia originale | Stato attuale |
+| Component | Original technology | Current state |
 |---|---|---|
-| Orchestrator | LangGraph StateGraph | **Invariato** |
-| DataCollector | OpenAI Agents SDK + LiteLLM | **Migrato** → Anthropic SDK native ReAct |
-| NewsSentiment | Smolagents (HuggingFace) | **Migrato** → Anthropic SDK native ReAct |
-| FundamentalAnalyst | BeeAI ReActAgent | **Migrato** → Anthropic SDK native ReAct |
-| RiskAssessor | BeeAI ReActAgent | **Migrato** → Anthropic SDK native ReAct |
-| ReportWriter | Anthropic SDK direct | **Invariato** |
-| Dati fondamentali | yfinance (scraping Yahoo Finance) | **Rimosso** → stub NotImplementedError (Fase 5) |
-| Dati news | RSS Reuters/Yahoo/MarketWatch + Investing.com ×2 | Investing.com **rimosso**, altri ⚠️ da verificare con Legal |
+| Orchestrator | LangGraph StateGraph | **Unchanged** |
+| DataCollector | OpenAI Agents SDK + LiteLLM | **Migrated** → Anthropic SDK native ReAct |
+| NewsSentiment | Smolagents (HuggingFace) | **Migrated** → Anthropic SDK native ReAct |
+| FundamentalAnalyst | BeeAI ReActAgent | **Migrated** → Anthropic SDK native ReAct |
+| RiskAssessor | BeeAI ReActAgent | **Migrated** → Anthropic SDK native ReAct |
+| ReportWriter | Anthropic SDK direct | **Unchanged** |
+| Fundamental data | yfinance (Yahoo Finance scraping) | **Removed** → stub NotImplementedError (Phase 5) |
+| News data | RSS Reuters/Yahoo/MarketWatch + Investing.com ×2 | Investing.com **removed**, others ⚠️ to verify with Legal |
 
-### Rischi identificati e stato attuale
+### Identified risks and current status
 
-| Priorità | Rischio | Fase | Stato |
+| Priority | Risk | Phase | Status |
 |---|---|:---:|---|
-| 1 | Nessun audit trail — incompatibile con compliance financial services | 1 | ✅ Risolto |
-| 2 | Porte 8001-8005 aperte senza autenticazione inter-agente | 2 | ✅ Risolto (HMAC-SHA256) |
-| 3 | Prompt injection da feed RSS — input non fidato passato ai modelli | 2 | ✅ Risolto (shared/sanitize.py) |
-| 4 | Nessun retry strutturato, nessun circuit breaker, SPOF orchestratore | 3 | ✅ Risolto (tenacity + circuit breaker custom) |
-| 5 | yfinance — dato non certificato, non auditabile, scraping non ufficiale | 5 | ✅ Stub rimosso anticipatamente — provider Fase 5 |
-| 6 | Payload monolitico crescente — rischio context overflow su batch grandi | 3/6 | ⚠️ Parzialmente (windowing Fase 3) — soluzione strutturale in Fase 6 |
-| 7 | Ambiente non riproducibile, prompt non versionati, nessun contract testing | 4 | ⏳ Pendente |
-| 8 | Provider LLM non approvato (ANTHROPIC_API_KEY diretta) | 0 | ✅ Risolto (shared/llm_client.py + DEMO_MODE) |
+| 1 | No audit trail — incompatible with financial services compliance | 1 | ✅ Resolved |
+| 2 | Ports 8001-8005 open without inter-agent authentication | 2 | ✅ Resolved (HMAC-SHA256) |
+| 3 | Prompt injection from RSS feeds — untrusted input passed to models | 2 | ✅ Resolved (shared/sanitize.py) |
+| 4 | No structured retry, no circuit breaker, orchestrator SPOF | 3 | ✅ Resolved (tenacity + custom circuit breaker) |
+| 5 | yfinance — uncertified data, not auditable, unofficial scraping | 5 | ✅ Removed early — Phase 5 provider pending |
+| 6 | Growing monolithic payload — context overflow risk on large batches | 3/6 | ⚠️ Partial (windowing Phase 3) — structural solution in Phase 6 |
+| 7 | Non-reproducible environment, unversioned prompts, no contract testing | 4 | ⏳ Pending |
+| 8 | Unapproved LLM provider (direct ANTHROPIC_API_KEY) | 0 | ✅ Resolved (shared/llm_client.py + DEMO_MODE) |
 
 ---
 
 ## Context
 
-Il sistema è un prototipo funzionante con una base architettuale corretta (A2A, LangGraph, separazione dei concern, guardrail deterministici). Il gap verso un deployment enterprise non è nei pattern scelti, ma nella mancanza dei layer trasversali: sicurezza, osservabilità, auditabilità, resilienza.
+The system is a working prototype with a sound architectural foundation (A2A, LangGraph, separation of concerns, deterministic guardrails). The gap toward enterprise deployment is not in the chosen patterns, but in the absence of cross-cutting layers: security, observability, auditability, resilience.
 
-Il piano è strutturato in **6 fasi milestone ordinate per priorità**. Non riscrive l'architettura — la evolve incrementalmente. Il contratto A2A rimane stabile per tutta la durata del piano.
-
----
-
-## Valutazione Autorizzazioni Tecnologiche
-
-> **Nota metodologica:** questa valutazione è basata su criteri generali enterprise (maturità del vendor, presenza di SLA commerciali, licenze d'uso esplicite, track record di adozione in financial services). Non sostituisce la verifica formale con il CISO / Technology Architecture Board / Approved Vendor List interna. I referenti da coinvolgere sono: Security Lead di practice, portale ATCI, myLearning Security, Technology Architecture Board Accenture.
-
-**Legenda:** ✅ Approvabile senza frizioni &nbsp;|&nbsp; ⚠️ Da verificare con Architecture Board &nbsp;|&nbsp; ❌ Alto rischio — richiede approvazione esplicita o sostituzione
+The plan is structured in **6 milestone phases ordered by priority**. It does not rewrite the architecture — it evolves it incrementally. The A2A contract remains stable throughout the plan.
 
 ---
 
-### Stack Attuale
+## Technology Authorization Assessment
 
-| Tecnologia | Categoria | Stato | Motivazione |
+> **Methodological note:** this assessment is based on general enterprise criteria (vendor maturity, commercial SLAs, explicit usage licences, financial services adoption track record). It does not replace formal review by the CISO / Technology Architecture Board / internal Approved Vendor List. Key contacts: practice Security Lead, ATCI portal, myLearning Security, Accenture Technology Architecture Board.
+
+**Legend:** ✅ Approvable without friction &nbsp;|&nbsp; ⚠️ Verify with Architecture Board &nbsp;|&nbsp; ❌ High risk — requires explicit approval or replacement
+
+---
+
+### Current Stack
+
+| Technology | Category | Status | Rationale |
 |---|---|:---:|---|
-| Python 3.11 | Runtime | ✅ | Standard de facto enterprise |
-| FastAPI | Web framework | ✅ | Ampiamente adottato, produzione-ready, Pydantic nativo |
-| Pydantic v2 | Validazione | ✅ | Standard de facto per Python API |
-| httpx | HTTP client | ✅ | Maturo, testato, asyncio-native |
-| JSON-RPC 2.0 | Protocollo inter-agente | ✅ | Standard aperto, nessuna dipendenza vendor |
-| uv | Package manager | ⚠️ | Relativamente nuovo (2023); verificare se la policy interna ammette alternative a pip/poetry. Rischio basso ma da confermare |
-| LangGraph (LangChain) | Orchestrazione | ⚠️ | Ampiamente adottato in enterprise AI, ma evolve rapidamente. Verificare versione minima supportata e se LangChain Inc. è vendor approvato |
-| OpenAI Agents SDK | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct (`shared/react.py`) |
-| Smolagents (HuggingFace) | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct |
-| BeeAI (IBM) | Framework agente | ~~⚠️~~ | **Rimosso** — sostituito da Anthropic SDK native ReAct (eliminato anche il vincolo prefill / Haiku) |
-| Anthropic API (diretta) | LLM provider | ❌ | **Non approvato per nessun workload applicativo**, incluso lo sviluppo locale. La policy Accenture vieta esplicitamente l'uso di `ANTHROPIC_API_KEY` personali o non gestite. Tutti gli accessi LLM devono passare per AWS Bedrock, Google Vertex AI, o Azure AI Foundry con autenticazione IAM/service account. Vedi Fase 0 |
-| AWS Bedrock (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Autenticazione via IAM role. Provisioning tramite CAPP (Global IT) o CMO (resto Accenture) |
-| Azure AI Foundry (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Coerente con Azure Key Vault (Fase 2). Autenticazione via Azure Managed Identity / service principal |
-| Google Vertex AI (Claude) | LLM provider | ✅ | Pattern approvato Accenture per application workloads. Autenticazione via GCP service account |
-| yfinance | Fonte dati | ❌ | Scraping non ufficiale di Yahoo Finance. Nessun SLA, nessuna licenza d'uso commerciale, dati non certificati. Incompatibile con financial services enterprise e con MiFID II. **Rimosso anticipatamente — stub NotImplementedError in shared/tools/yfinance_tool.py. Sostituzione con provider certificato in Fase 5** |
-| RSS Reuters / Yahoo Finance / MarketWatch | Fonte dati | ⚠️ | Feed pubblici senza licenza dati esplicita per uso commerciale/analitico. Reuters ha policy restrittive sul riuso dei contenuti. Da verificare con Legal prima di un deployment production |
-| RSS Investing.com ×2 | Fonte dati | ❌ | Investing.com ha storicamente bloccato scraping e non offre licenza dati pubblica. Alto rischio di violazione ToS. **Rimosso anticipatamente da shared/tools/rss_feed.py** |
+| Python 3.11 | Runtime | ✅ | Enterprise de facto standard |
+| FastAPI | Web framework | ✅ | Widely adopted, production-ready, native Pydantic |
+| Pydantic v2 | Validation | ✅ | De facto standard for Python APIs |
+| httpx | HTTP client | ✅ | Mature, tested, asyncio-native |
+| JSON-RPC 2.0 | Inter-agent protocol | ✅ | Open standard, no vendor dependency |
+| uv | Package manager | ⚠️ | Relatively new (2023); verify if internal policy allows alternatives to pip/poetry. Low risk but needs confirmation |
+| LangGraph (LangChain) | Orchestration | ⚠️ | Widely adopted in enterprise AI, but evolves fast. Verify minimum supported version and whether LangChain Inc. is an approved vendor |
+| OpenAI Agents SDK | Agent framework | ~~⚠️~~ | **Removed** — replaced by Anthropic SDK native ReAct (`shared/react.py`) |
+| Smolagents (HuggingFace) | Agent framework | ~~⚠️~~ | **Removed** — replaced by Anthropic SDK native ReAct |
+| BeeAI (IBM) | Agent framework | ~~⚠️~~ | **Removed** — replaced by Anthropic SDK native ReAct (also eliminates prefill / Haiku constraint) |
+| Anthropic API (direct) | LLM provider | ❌ | **Not approved for any application workload**, including local development. Accenture policy explicitly prohibits personal or unmanaged `ANTHROPIC_API_KEY` usage. All LLM access must go through AWS Bedrock, Google Vertex AI, or Azure AI Foundry with IAM/service account authentication. See Phase 0 |
+| AWS Bedrock (Claude) | LLM provider | ✅ | Accenture approved pattern for application workloads. Authentication via IAM role. Provisioning through CAPP (Global IT) or CMO (rest of Accenture) |
+| Azure AI Foundry (Claude) | LLM provider | ✅ | Accenture approved pattern for application workloads. Consistent with Azure Key Vault (Phase 2). Authentication via Azure Managed Identity / service principal |
+| Google Vertex AI (Claude) | LLM provider | ✅ | Accenture approved pattern for application workloads. Authentication via GCP service account |
+| yfinance | Data source | ❌ | Unofficial Yahoo Finance scraping. No SLA, no commercial licence, uncertified data. Incompatible with financial services enterprise and MiFID II. **Removed early — stub NotImplementedError in shared/tools/yfinance_tool.py. Replace with certified provider in Phase 5** |
+| RSS Reuters / Yahoo Finance / MarketWatch | Data source | ⚠️ | Public feeds without explicit data licence for commercial/analytical use. Reuters has restrictive content reuse policies. Verify with Legal before any production deployment |
+| RSS Investing.com ×2 | Data source | ❌ | Investing.com has historically blocked scraping and offers no public data licence. High risk of ToS violation. **Removed early from shared/tools/rss_feed.py** |
 
 ---
 
-### Tecnologie Pianificate per Fase
+### Technologies Planned by Phase
 
-| Tecnologia | Fase | Categoria | Stato | Motivazione |
+| Technology | Phase | Category | Status | Rationale |
 |---|:---:|---|:---:|---|
-| `structlog` | 1 | Logging | ✅ | Libreria Python matura, nessuna dipendenza vendor esterna |
-| `hmac` (stdlib) | 2 | Sicurezza | ✅ | Libreria standard Python, nessuna dipendenza aggiuntiva |
-| `bleach` | 2 | Sanitizzazione | ✅ | Libreria Python consolidata (Mozilla), uso comune in produzione |
-| `azure-keyvault-secrets` | 2 | Secret management | ✅ | Azure è vendor approvato Accenture; Key Vault è la soluzione standard |
-| `tenacity` | 3 | Retry logic | ✅ | Libreria Python matura, ampiamente usata in enterprise |
-| `pybreaker` | 3 | Circuit breaker | ⚠️ | Meno diffuso di alternativa Resilience4j (Java). Verificare se approvato o preferire implementazione custom con `tenacity` |
-| `langgraph-checkpoint-sqlite` | 3 (dev) | Checkpointing | ✅ | SQLite stdlib, nessun servizio esterno in dev |
-| `langgraph-checkpoint-postgres` | 3 (prod) | Checkpointing | ✅ | PostgreSQL standard enterprise |
-| Docker / Docker Compose | 4 | Containerizzazione | ✅ | Standard enterprise, ampiamente adottato |
-| GitHub Actions | 4 | CI/CD | ⚠️ | Verificare se la policy prevede Azure DevOps come piattaforma obbligatoria per CI/CD. In Accenture i progetti client spesso richiedono Azure DevOps |
-| Azure DevOps Pipelines | 4 | CI/CD | ✅ | Preferibile a GitHub Actions in contesti Accenture — vendor Microsoft, standard enterprise |
-| `ruff` | 4 | Linting | ✅ | Standard de facto Python, nessuna dipendenza vendor |
-| `mypy` | 4 | Type checking | ✅ | Standard Python, ampiamente usato in enterprise |
-| Alpha Vantage | 5 | Dati di mercato | ⚠️ | Provider con API ufficiale e SLA, ma da verificare se è in approved vendor list per dati finanziari. Free tier non adatto a produzione |
-| Refinitiv / LSEG Data API | 5 | Dati di mercato | ✅ | Standard financial services EU, dati certificati, SLA garantito, compatibile MiFID II |
-| Bloomberg B-PIPE | 5 | Dati di mercato | ✅ | Standard de facto in financial services — se contratto già presente nell'organizzazione |
-| PostgreSQL (audit DB) | 5 | Database | ✅ | Standard enterprise, ampiamente approvato |
-| AWS S3 Object Lock | 5 | Immutabilità log | ⚠️ | Verificare se AWS è vendor approvato nel contesto di deployment (vs Azure-first policy) |
-| Kubernetes | 6 | Orchestrazione container | ✅ | Standard enterprise, ampiamente approvato |
-| Helm | 6 | Package manager K8s | ✅ | Standard de facto per K8s, ampiamente adottato |
-| Istio (Service Mesh) | 6 | Networking / mTLS | ⚠️ | Maturo e ampiamente adottato, ma aggiunge complessità operativa significativa. Verificare se la practice ha competenze interne o se preferire Linkerd (più semplice) |
-| MinIO | 6 | Artifact store (self-hosted) | ⚠️ | Self-hosted S3-compatible. Preferire Azure Blob Storage se cloud-first è il mandato |
-| Azure Blob Storage | 6 | Artifact store | ✅ | Standard Azure, vendor approvato |
-| OpenTelemetry | 6 | Osservabilità | ✅ | Standard CNCF, vendor-neutral, ampiamente adottato |
-| Prometheus | 6 | Metriche | ✅ | Standard CNCF, ampiamente adottato |
-| Grafana | 6 | Dashboard | ✅ | Standard enterprise per observability |
-| Loki | 6 | Log aggregation | ✅ | Grafana Labs, ampiamente adottato in stack cloud-native |
-| Argo CD | 6 | GitOps / CD | ⚠️ | Maturo e CNCF-graduated, ma verificare se la practice preferisce Azure DevOps per il deployment. Alternativa: Flux CD |
+| `structlog` | 1 | Logging | ✅ | Mature Python library, no external vendor dependency |
+| `hmac` (stdlib) | 2 | Security | ✅ | Python standard library, no additional dependency |
+| `bleach` | 2 | Sanitization | ✅ | Established Python library (Mozilla), common in production |
+| `azure-keyvault-secrets` | 2 | Secret management | ✅ | Azure is an Accenture-approved vendor; Key Vault is the standard solution |
+| `tenacity` | 3 | Retry logic | ✅ | Mature Python library, widely used in enterprise |
+| `pybreaker` | 3 | Circuit breaker | ⚠️ | Less common than Resilience4j (Java). Verify if approved or prefer custom implementation with `tenacity` |
+| `langgraph-checkpoint-sqlite` | 3 (dev) | Checkpointing | ✅ | SQLite stdlib, no external service in dev |
+| `langgraph-checkpoint-postgres` | 3 (prod) | Checkpointing | ✅ | Standard enterprise PostgreSQL |
+| Docker / Docker Compose | 4 | Containerization | ✅ | Enterprise standard, widely adopted |
+| GitHub Actions | 4 | CI/CD | ⚠️ | Verify if policy mandates Azure DevOps as CI/CD platform. Accenture client projects often require Azure DevOps |
+| Azure DevOps Pipelines | 4 | CI/CD | ✅ | Preferable to GitHub Actions in Accenture contexts — Microsoft vendor, enterprise standard |
+| `ruff` | 4 | Linting | ✅ | Python de facto standard, no vendor dependency |
+| `mypy` | 4 | Type checking | ✅ | Standard Python, widely used in enterprise |
+| Alpha Vantage | 5 | Market data | ⚠️ | Provider with official API and SLA, but verify if on approved vendor list for financial data. Free tier not suitable for production |
+| Refinitiv / LSEG Data API | 5 | Market data | ✅ | EU financial services standard, certified data, guaranteed SLA, MiFID II compliant |
+| Bloomberg B-PIPE | 5 | Market data | ✅ | De facto standard in financial services — if contract already exists in the organisation |
+| PostgreSQL (audit DB) | 5 | Database | ✅ | Enterprise standard, widely approved |
+| AWS S3 Object Lock | 5 | Log immutability | ⚠️ | Verify if AWS is the approved vendor in the deployment context (vs Azure-first policy) |
+| Kubernetes | 6 | Container orchestration | ✅ | Enterprise standard, widely approved |
+| Helm | 6 | K8s package manager | ✅ | De facto standard for K8s, widely adopted |
+| Istio (Service Mesh) | 6 | Networking / mTLS | ⚠️ | Mature and widely adopted, but adds significant operational complexity. Verify if the practice has internal expertise or prefers Linkerd (simpler) |
+| MinIO | 6 | Artifact store (self-hosted) | ⚠️ | Self-hosted S3-compatible. Prefer Azure Blob Storage if cloud-first is the mandate |
+| Azure Blob Storage | 6 | Artifact store | ✅ | Azure standard, approved vendor |
+| OpenTelemetry | 6 | Observability | ✅ | CNCF standard, vendor-neutral, widely adopted |
+| Prometheus | 6 | Metrics | ✅ | CNCF standard, widely adopted |
+| Grafana | 6 | Dashboard | ✅ | Enterprise standard for observability |
+| Loki | 6 | Log aggregation | ✅ | Grafana Labs, widely adopted in cloud-native stacks |
+| Argo CD | 6 | GitOps / CD | ⚠️ | Mature and CNCF-graduated, but verify if the practice prefers Azure DevOps for deployment. Alternative: Flux CD |
 
 ---
 
-### Priorità di Verifica
+### Verification Priorities
 
-Prima di avviare qualsiasi fase, verificare nell'ordine:
+Before starting any phase, verify in this order:
 
-1. ~~**Cloud provider**~~ ✅ **Risolto** — `shared/llm_client.py` + `DEMO_MODE=true` in sviluppo locale. Per produzione: aprire ticket ServiceNow "Claude Enterprise" (Bedrock, Vertex AI, o Azure AI Foundry).
-2. ~~**yfinance e RSS Investing.com**~~ ✅ **Risolto** — yfinance rimosso (stub NotImplementedError), Investing.com rimosso da rss_feed.py.
-3. ~~**Smolagents / BeeAI / OpenAI Agents SDK**~~ ✅ **Risolto** — tutti rimossi, Anthropic SDK native ReAct uniforme.
-4. **CI/CD platform** — decidere GitHub Actions vs Azure DevOps prima di Fase 4 per non dover migrare pipeline.
-5. **Cloud provider per infrastruttura** — confermare Azure-first vs multi-cloud prima di Fase 6 (impatta scelta artifact store, secret manager, GitOps tool).
-
----
-
-## Fasi di Intervento
-
-### Fase 0 — Prerequisiti Enterprise (da completare prima di qualsiasi altra fase)
-**Orizzonte:** 1-2 settimane (dipende dai tempi di approvazione interni) | **Complessità:** Organizzativa, non tecnica
-
-**Contesto:** il sistema attuale usa `ANTHROPIC_API_KEY` in `.env`. Questa configurazione **non è approvata** per nessun workload applicativo Accenture — incluso lo sviluppo locale. Prima di procedere con qualsiasi fase tecnica è necessario risolvere l'accesso LLM nel modo approvato.
-
-**Interventi:**
-
-**0a — Ottenere accesso cloud-managed a Claude**
-- Aprire ticket ServiceNow categoria "Claude Enterprise" specificando: use case applicativo (equity research agent pipeline), framework usati (LangGraph, Anthropic SDK native ReAct), cloud provider preferito
-- Attendere provisioning tramite CAPP (Global IT) o CMO
-- Output atteso: credenziali IAM (AWS role ARN, Azure service principal, o GCP service account) per accesso a Claude tramite il cloud provider assegnato
-
-**0b — Progettare l'astrazione del client LLM**
-- Creare `shared/llm_client.py` con factory `get_llm_client(provider: str) -> LLMClient` selezionata da env var `LLM_PROVIDER=bedrock|vertex|azure`
-- Ogni agente smette di istanziare direttamente il proprio client LLM — chiama la factory
-- La factory restituisce il client configurato per il provider: `AnthropicBedrock`, `AnthropicVertex`, o Azure AI Foundry endpoint
-- Eliminare `ANTHROPIC_API_KEY` da `.env` e da tutti gli `agent.py`
-- **Nota su BeeAI:** verificare se `AnthropicChatModel` supporta Bedrock/Vertex. Se non supportato, FundamentalAnalyst e RiskAssessor richiedono sostituzione del framework o del client interno prima di poter girare in modalità cloud-managed
-
-**0c — Aggiornare il modello di sviluppo locale**
-- Lo sviluppo locale usa le stesse credenziali cloud del provider assegnato (es. AWS profile locale, Azure CLI login, gcloud auth application-default)
-- Nessuna eccezione "solo per dev locale" con API key diretta
-- I test unitari e i contract test girano con mock LLM — non richiedono credenziali reali
-
-**0d — Demo mode per sviluppo senza credenziali cloud**
-- Aggiungere env var `DEMO_MODE=true` letta a startup in ogni `agent.py`
-- In demo mode, `run_agent()` salta la chiamata LLM e restituisce un `A2ATaskResult` pre-confezionato con dati realistici ma fittizi (fondamentali inventati, news di esempio, candidati con scoring plausibile, report di placeholder)
-- L'orchestratore, il grafo LangGraph, l'audit trail, il retry, il correlation ID girano normalmente — non sanno che gli agenti hanno restituito dati stub
-- I dati demo sono file statici in `agents/{agent}/demo/response.json`, versionati in git — stabili e riproducibili
-- Questo consente di sviluppare e testare tutte le feature trasversali (Fasi 1-4) con una pipeline end-to-end funzionante, senza nessuna credenziale cloud e senza violare policy
-- **Non è un workaround alla policy**: nessuna chiamata LLM viene effettuata, nessun dato esce dal perimetro locale
-
-**File principali:** `shared/llm_client.py` (nuovo), tutti gli `agent.py`, `.env.example` (aggiornato)
-
-**Outcome verificabile:** `grep -r "ANTHROPIC_API_KEY" agents/` non trova occorrenze; `LLM_PROVIDER=bedrock` + credenziali AWS locali completa una run end-to-end; `LLM_PROVIDER=azure` completa la stessa run senza modifiche al codice degli agenti
+1. ~~**Cloud provider**~~ ✅ **Resolved** — `shared/llm_client.py` + `DEMO_MODE=true` for local development. For production: open ServiceNow ticket "Claude Enterprise" (Bedrock, Vertex AI, or Azure AI Foundry).
+2. ~~**yfinance and RSS Investing.com**~~ ✅ **Resolved** — yfinance removed (stub NotImplementedError), Investing.com removed from rss_feed.py.
+3. ~~**Smolagents / BeeAI / OpenAI Agents SDK**~~ ✅ **Resolved** — all removed, uniform Anthropic SDK native ReAct.
+4. **CI/CD platform** — decide GitHub Actions vs Azure DevOps before Phase 4 to avoid pipeline migration.
+5. **Infrastructure cloud provider** — confirm Azure-first vs multi-cloud before Phase 6 (impacts artifact store, secret manager, GitOps tooling choice).
 
 ---
 
-### Fase 1 — Osservabilità e Audit Trail di Base
-**Orizzonte:** 2-3 settimane | **Complessità:** Bassa | **Quick win ad alto impatto**
+## Intervention Phases
 
-**Criticità risolte:** nessun correlation ID, nessun audit log, logging stdout non strutturato
+### Phase 0 — Enterprise Prerequisites (complete before any other phase)
+**Horizon:** 1-2 weeks (depends on internal approval timelines) | **Complexity:** Organisational, not technical
 
-**Interventi:**
-- Aggiungere `correlation_id` (UUID v4) a `A2ATask.metadata` in `shared/a2a_models.py` — campo opzionale, retrocompatibile
-- Strutturare il logging con `structlog` — ogni evento include `correlation_id`, `agent`, `model_id`, `duration_ms`, `status`, `token_usage`
-- Creare `shared/audit.py`: funzione `write_audit_event(event)` che scrive in JSONL append-only su `output/audit_{date}.jsonl`. Ogni evento include `prompt_hash` (SHA-256 del system prompt), `input_hash`, `output_hash`
-- Il `prompt_hash` traccia silenziosamente le modifiche ai prompt hardcoded senza versioning esplicito — evolve in Fase 4
-- Aggiungere `GET /health` aggregato all'orchestratore (interroga i 5 `/health` in parallelo via `httpx.gather`)
-- Estrarre il tracking `usage.input_tokens` / `usage.output_tokens` già esposto dall'Anthropic SDK in `report-writer/agent.py`
+**Context:** the current system uses `ANTHROPIC_API_KEY` in `.env`. This configuration **is not approved** for any Accenture application workload — including local development. Before proceeding with any technical phase, LLM access must be resolved in the approved manner.
 
-**File principali:** `shared/a2a_models.py`, `shared/audit.py` (nuovo), `orchestrator/main.py`, tutti gli `agent.py`
+**Interventions:**
 
-**Outcome verificabile:** ogni run produce `output/audit_{date}.jsonl` con un record per agente; tutti i log di una run condividono lo stesso `correlation_id`; `GET /orchestrator/health` ritorna stato aggregato
+**0a — Obtain cloud-managed access to Claude**
+- Open ServiceNow ticket category "Claude Enterprise" specifying: application use case (equity research agent pipeline), frameworks used (LangGraph, Anthropic SDK native ReAct), preferred cloud provider
+- Await provisioning via CAPP (Global IT) or CMO
+- Expected output: IAM credentials (AWS role ARN, Azure service principal, or GCP service account) for Claude access via the assigned cloud provider
 
----
+**0b — Design the LLM client abstraction**
+- Create `shared/llm_client.py` with factory `get_llm_client(provider: str) -> LLMClient` selected by env var `LLM_PROVIDER=bedrock|vertex|azure`
+- Each agent stops directly instantiating its own LLM client — calls the factory instead
+- Factory returns the client configured for the provider: `AnthropicBedrock`, `AnthropicVertex`, or Azure AI Foundry endpoint
+- Remove `ANTHROPIC_API_KEY` from `.env` and all `agent.py` files
+- **Note on BeeAI:** verify if `AnthropicChatModel` supports Bedrock/Vertex. If not supported, FundamentalAnalyst and RiskAssessor require framework or internal client replacement before running in cloud-managed mode
 
-### Fase 2 — Sicurezza Inter-agente e Secret Management
-**Orizzonte:** 3-4 settimane | **Complessità:** Media
+**0c — Update the local development model**
+- Local development uses the same cloud credentials as the assigned provider (e.g. AWS local profile, Azure CLI login, gcloud auth application-default)
+- No "dev-only" exceptions with direct API keys
+- Unit tests and contract tests run with mock LLM — do not require real credentials
 
-**Criticità risolte:** porte 8001-8005 aperte senza autenticazione, API key in `.env`, prompt injection da RSS
+**0d — Demo mode for development without cloud credentials**
+- Add env var `DEMO_MODE=true` read at startup in every `agent.py`
+- In demo mode, `run_agent()` skips the LLM call and returns a pre-built `A2ATaskResult` with realistic but fictitious data (invented fundamentals, sample news, candidates with plausible scoring, placeholder report)
+- The orchestrator, LangGraph graph, audit trail, retry, and correlation ID run normally — they are unaware that agents returned stub data
+- Demo data are static files in `agents/{agent}/demo/response.json`, versioned in git — stable and reproducible
+- This enables development and testing of all cross-cutting features (Phases 1-4) with a fully working end-to-end pipeline, without any cloud credentials and without violating policy
+- **This is not a policy workaround**: no LLM call is made, no data leaves the local perimeter
 
-**Interventi:**
-- **Autenticazione HMAC-SHA256:** aggiungere header `X-A2A-Signature` (HMAC su body + timestamp) e `X-A2A-Timestamp` alle chiamate A2A. Middleware FastAPI di verifica in ogni agente. Finestra anti-replay di 30 secondi. Zero infrastruttura aggiuntiva — shared secret da secret manager
-- **Secret Manager:** creare `shared/secrets.py` con factory `get_secret(key)`. In dev: legge da `.env` via `python-dotenv`. In produzione: legge da Azure Key Vault (`azure-keyvault-secrets`) o AWS Secrets Manager (`boto3`). Selezionato da env var `SECRET_PROVIDER=local|azure|aws`. Eliminare tutti gli `os.getenv("ANTHROPIC_API_KEY")` diretti dagli `agent.py`
-- **RSS Sanitization:** creare `shared/sanitize.py` con `sanitize_rss_item(title, summary)` — strip HTML (`bleach`), troncamento a lunghezze massime, rimozione caratteri di controllo. Applicare in `shared/tools/rss_feed.py` prima che il testo raggiunga i prompt
-- IP allowlist documentata: porte 8001-8005 accessibili solo dall'orchestratore (Docker Compose network interno in Fase 4, NetworkPolicy in Fase 6)
+**Key files:** `shared/llm_client.py` (new), all `agent.py` files, `.env.example` (updated)
 
-**Tecnologie:** `hmac` stdlib, `bleach`, `azure-keyvault-secrets`
-
-**File principali:** `shared/secrets.py` (nuovo), `shared/sanitize.py` (nuovo), `shared/tools/rss_feed.py`, `orchestrator/main.py`, tutti gli `agent.py`
-
-**Outcome verificabile:** `POST /tasks` senza `X-A2A-Signature` → HTTP 401; `grep -r "os.getenv" agents/` non trova API key dirette; RSS contaminato con tag HTML arriva sanificato all'agente
-
----
-
-### Fase 3 — Resilienza, Retry Strutturato e Checkpointing
-**Orizzonte:** 4-6 settimane | **Complessità:** Media
-
-**Criticità risolte:** nessun checkpointing, SPOF orchestratore (parziale), nessun circuit breaker, `asyncio.sleep(90)` hardcoded, payload monolitico (parziale)
-
-**Interventi:**
-- **LangGraph Checkpointing:** passare `SqliteSaver` (dev) o `PostgresSaver` (prod) a `StateGraph.compile()` in `_build_graph()`. Il `run_id` di Fase 1 diventa il `thread_id`. Crash a stadio 4 → ripartenza da stadio 4 con stesso `run_id`
-- **Retry strutturato:** sostituire `asyncio.sleep(90)` hardcoded con `@retry(wait=wait_exponential(min=10, max=120), stop=stop_after_attempt(5))` via `tenacity`. Definire eccezioni tipizzate `RateLimitError`, `AgentTimeoutError`, `AgentUnavailableError` in `shared/exceptions.py`
-- **Circuit Breaker:** `pybreaker` su `send_task_with_retry` nell'orchestratore. Apertura del circuito dopo 3 errori transienti in 5 minuti — fallisce immediatamente invece di aspettare il timeout
-- **Payload Windowing:** costanti `MAX_NEWS_PAYLOAD` e `MAX_CANDIDATES_PAYLOAD` configurabili. Il NewsSentiment restituisce top-N news per rilevanza. Soluzione strutturale completa in Fase 6 (artifact store)
-- **Graceful Degradation:** conditional edge in LangGraph — se NewsSentiment fallisce, prosegue con `news=[]` e nota metodologica; se DataCollector fallisce su un ticker, quel ticker viene marcato come `data_unavailable` e gli altri procedono
-
-**Tecnologie:** `langgraph-checkpoint-sqlite` (dev), `langgraph-checkpoint-postgres` (prod), `tenacity`, `pybreaker`
-
-**File principali:** `orchestrator/main.py`, `shared/exceptions.py` (nuovo)
-
-**Outcome verificabile:** kill del processo orchestratore a stadio 3 → riavvio con stesso `run_id` riprende da stadio 4; agente irraggiungibile apre il circuit breaker dopo 3 fallimenti; pipeline completa con NewsSentiment offline producendo report con nota di degradation
+**Verifiable outcome:** `grep -r "ANTHROPIC_API_KEY" agents/` finds no occurrences; `LLM_PROVIDER=bedrock` + local AWS credentials completes an end-to-end run; `LLM_PROVIDER=azure` completes the same run without code changes to the agents
 
 ---
 
-### Fase 4 — Containerizzazione e CI/CD Pipeline
-**Orizzonte:** 6-8 settimane | **Complessità:** Media-Alta
+### Phase 1 — Observability and Basic Audit Trail
+**Horizon:** 2-3 weeks | **Complexity:** Low | **Quick win with high impact**
 
-**Criticità risolte:** ambiente non riproducibile, prompt non versionati, nessun contract testing A2A
+**Issues resolved:** no correlation ID, no audit log, unstructured stdout logging
 
-**Interventi:**
-- **Dockerfile per agente** in ogni `agents/{agent}/Dockerfile`. Immagine base `python:3.11-slim`. Immagine orchestratore separata. Gestione della dipendenza da `sys.path.insert()` presenti negli `agent.py` (da risolvere con packaging corretto)
-- **Docker Compose** al root: 5 agenti + orchestratore + PostgreSQL (checkpointing) su rete interna `agents-net`. Porte 8001-8005 non esposte sull'host
-- **CI/CD Pipeline** (GitHub Actions o Azure DevOps): lint (`ruff`), type check (`mypy` su `shared/`), smoke tests offline, contract tests A2A
-- **Contract tests A2A** in `tests/test_contracts.py`: verifica che ogni agent card rispetti schema `AgentCard`, che `tasks/send` sia implementato, che il wire format corrisponda a `A2ATaskResult` — girano senza LLM reali via `httpx.MockTransport`
-- **Prompt come file:** spostare i system prompt hardcoded (`_REPORT_SYSTEM`, `_QA_SYSTEM`, `_INSTRUCTIONS`) da stringhe in `agent.py` a file `agents/{agent}/prompts/system.md`. L'`agent.py` legge a startup. Il `prompt_hash` di Fase 1 diventa SHA-256 del file — tracciabile con `git log`
-- **Versioning del protocollo A2A:** campo `version: "1.0"` in `JsonRpcRequest` e `AgentCard`. CI verifica coerenza con `pyproject.toml`
+**Interventions:**
+- Add `correlation_id` (UUID v4) to `A2ATask.metadata` in `shared/a2a_models.py` — optional field, backwards-compatible
+- Structure logging with `structlog` — every event includes `correlation_id`, `agent`, `model_id`, `duration_ms`, `status`, `token_usage`
+- Create `shared/audit.py`: function `write_audit_event(event)` that writes to append-only JSONL at `output/audit_{date}.jsonl`. Every event includes `prompt_hash` (SHA-256 of the system prompt), `input_hash`, `output_hash`
+- `prompt_hash` silently tracks changes to hardcoded prompts without explicit versioning — evolves in Phase 4
+- Add aggregated `GET /health` to the orchestrator (queries all 5 `/health` endpoints in parallel via `httpx.gather`)
+- Extract `usage.input_tokens` / `usage.output_tokens` tracking already exposed by the Anthropic SDK in `report-writer/agent.py`
 
-**Tecnologie:** Docker, Docker Compose, GitHub Actions / Azure DevOps, `ruff`, `mypy`, `schemathesis`
+**Key files:** `shared/a2a_models.py`, `shared/audit.py` (new), `orchestrator/main.py`, all `agent.py` files
 
-**File principali:** `Dockerfile` per agente (nuovi), `docker-compose.yml` (nuovo), `.github/workflows/ci.yml` (nuovo), `agents/{agent}/prompts/system.md` (nuovi)
-
-**Outcome verificabile:** `docker compose up` avvia tutto senza config manuale; PR che rompe il wire format A2A non passa CI; modifica a `system.md` produce `prompt_hash` diverso nel log di audit
+**Verifiable outcome:** every run produces `output/audit_{date}.jsonl` with one record per agent; all logs of a run share the same `correlation_id`; `GET /orchestrator/health` returns aggregated status
 
 ---
 
-### Fase 5 — Data Layer Certificato e Compliance MiFID II/MAR
-**Orizzonte:** 2-4 mesi | **Complessità:** Alta
+### Phase 2 — Inter-agent Security and Secret Management
+**Horizon:** 3-4 weeks | **Complexity:** Medium
 
-**Criticità risolte:** dipendenza yfinance (dato non certificato, scraping non ufficiale), audit trail incompleto per MiFID II
+**Issues resolved:** ports 8001-8005 open without authentication, API keys in `.env`, prompt injection from RSS
 
-**Interventi:**
-- **Astrazione Market Data Provider:** `shared/market_data/provider.py` con interfaccia `MarketDataProvider` e metodi `get_fundamentals(ticker)`, `get_price(ticker)`. Implementazioni: `YFinanceProvider` (dev), `AlphaVantageProvider` (validazione), `RefinitivProvider` (produzione). Selezione via `MARKET_DATA_PROVIDER` env var. Il `DataCollector` e `FundamentalAnalyst` chiamano solo l'interfaccia
-- **Data Lineage:** ogni `FundamentalsResult` include `source_provider`, `source_timestamp`, `source_record_id`, `certifiable: bool`. Incluso nell'audit log per ogni candidato analizzato
-- **Audit Log su PostgreSQL:** migrare da JSONL a tabella `audit_events` append-only (nessun UPDATE/DELETE garantito da trigger DB o policy). Indici su `correlation_id`, `run_id`, `agent`, `timestamp`. Alternativa immutabilità certificata: AWS S3 Object Lock in COMPLIANCE mode
-- **Registro dei Prompt:** tabella `prompt_versions` (`prompt_id`, `agent`, `content_hash`, `content`, `created_at`, `created_by`, `change_rationale`). Il `prompt_hash` nel log referenzia questa tabella. CI aggiorna il registro automaticamente ad ogni modifica ai file `prompts/system.md`
-- **Firma artefatti output:** SHA-256 di ogni `report_{timestamp}.html` e `raw_{timestamp}.json` registrato nell'audit log al momento della generazione in `shared/report.py`
+**Interventions:**
+- **HMAC-SHA256 authentication:** add `X-A2A-Signature` header (HMAC on body + timestamp) and `X-A2A-Timestamp` to A2A calls. FastAPI verification middleware in every agent. Anti-replay window of 30 seconds. No additional infrastructure — shared secret from secret manager
+- **Secret Manager:** create `shared/secrets.py` with factory `get_secret(key)`. In dev: reads from `.env` via `python-dotenv`. In production: reads from Azure Key Vault (`azure-keyvault-secrets`) or AWS Secrets Manager (`boto3`). Selected by env var `SECRET_PROVIDER=local|azure|aws`. Remove all direct `os.getenv("ANTHROPIC_API_KEY")` from `agent.py` files
+- **RSS Sanitization:** create `shared/sanitize.py` with `sanitize_rss_item(title, summary)` — HTML strip (`bleach`), truncation to maximum lengths, control character removal. Apply in `shared/tools/rss_feed.py` before text reaches prompts
+- IP allowlist documented: ports 8001-8005 accessible only from the orchestrator (Docker Compose internal network in Phase 4, NetworkPolicy in Phase 6)
 
-**Provider dati raccomandati:**
-- Alpha Vantage — free tier per validazione, ~$50/mese enterprise
-- Refinitiv Eikon Data API — standard financial services EU, SLA garantito, dati certificati per uso regolamentato
-- Bloomberg B-PIPE — se contratto già presente nell'organizzazione
+**Technologies:** `hmac` stdlib, `bleach`, `azure-keyvault-secrets`
 
-**Sequenza minima per MiFID II (se il driver è la compliance):** Fase 1 → Fase 5 → Fase 2. Le fasi 3, 4, 6 sono operative ma non prerequisiti diretti di conformità normativa.
+**Key files:** `shared/secrets.py` (new), `shared/sanitize.py` (new), `shared/tools/rss_feed.py`, `orchestrator/main.py`, all `agent.py` files
 
-> **Nota operativa — stato attuale (giugno 2026):** in `DEMO_MODE=true` nessuna fonte dati esterna viene chiamata — questa fase non è bloccante per lo sviluppo. L'esplorazione organizzativa è in corso in spare time.
-
-**Percorso organizzativo (da esplorare):**
-
-Tutti i provider dati e news devono essere licenziati prima di qualsiasi deployment production o demo a stakeholder client. Il percorso:
-
-1. **Verificare approved vendor list** — controllare su portale ATCI se Refinitiv LSEG o Bloomberg sono già vendor approvati in Accenture. Se sì, si bypassa il processo di approvazione e si va direttamente al provisioning.
-2. **Technology Architecture Board** — se il vendor non è in lista, aprire richiesta di approvazione con use case (equity research pipeline, financial services, MiFID II). Referenti: Security Lead della practice + Technology Architecture Board.
-3. **Legal / Compliance** — valutazione clausole di redistribuzione dei contenuti news (Reuters Connect incluso in Refinitiv ha restrizioni su output a terzi).
-4. **Contratto / provisioning** — Refinitiv LSEG è preferibile come scelta unica: copre fondamentali (sostituisce yfinance stub) **e** news Reuters (sostituisce i feed RSS) con un solo contratto e SLA certificato MiFID II.
-
-**Perché i feed RSS attuali non sono enterprise-ready:**
-- Reuters RSS: uso commerciale/analitico richiede licenza Reuters Connect
-- Yahoo Finance RSS / MarketWatch RSS: ToS vietano uso automatizzato a fini commerciali
-- Investing.com ×2: già rimosso (ToS violazione esplicita)
-
-**File principali:** `shared/market_data/provider.py` (nuovo), `shared/audit.py` (migrazione a DB), `shared/tools/yfinance_tool.py` (refactoring), `shared/report.py`
-
-**Outcome verificabile:** `MARKET_DATA_PROVIDER=alphavantage` completa con `data_lineage.source_provider: "alphavantage"` nel log; query SQL su `audit_events` restituisce tutti i run con una specifica versione del prompt
+**Verifiable outcome:** `POST /tasks` without `X-A2A-Signature` → HTTP 401; `grep -r "os.getenv" agents/` finds no direct API keys; RSS contaminated with HTML tags arrives sanitized at the agent
 
 ---
 
-### Fase 6 — Kubernetes, Alta Disponibilità e Scalabilità Orizzontale
-**Orizzonte:** 4-6 mesi | **Complessità:** Alta
+### Phase 3 — Resilience, Structured Retry and Checkpointing
+**Horizon:** 4-6 weeks | **Complexity:** Medium
 
-**Criticità risolte:** SPOF orchestratore (completo), payload monolitico (completo), scalabilità orizzontale
+**Issues resolved:** no checkpointing, orchestrator SPOF (partial), no circuit breaker, hardcoded `asyncio.sleep(90)`, monolithic payload (partial)
 
-**Interventi:**
-- **Helm Chart** per ogni agente: `Deployment` (replicas: 2), `Service`, `HorizontalPodAutoscaler`. `ExternalSecret` da Azure Key Vault via External Secrets Operator
-- **Orchestratore come Kubernetes Job:** non è un servizio always-on ma un `Job` triggered da API o `CronJob`. Ogni run è un Pod indipendente — SPOF eliminato
-- **Artifact Store:** `shared/artifact_store.py` con `put_artifact(run_id, key, data) -> str` e `get_artifact(ref) -> Any`. Il `PipelineState` porta solo riferimenti (`news_ref`, `fundamentals_ref`), non i dati. Dati in MinIO (self-hosted, S3-compatible) o Azure Blob Storage. Risolve il payload monolitico in modo architetturale
-- **Service Mesh (Istio):** mTLS inter-agente automatico, distributed tracing (Jaeger), circuit breaking infrastrutturale. L'autenticazione HMAC di Fase 2 può essere deprecata
-- **OpenTelemetry completo:** strumentare chiamate A2A come span con attributi `correlation_id`, `model.id`, `token.*`. Export verso Jaeger (traces) + Prometheus (metrics) + Loki (logs)
-- **Dashboard Grafana:** latenza P50/P95/P99 per agente, token usage, pipeline success rate, uptime
+**Interventions:**
+- **LangGraph Checkpointing:** pass `SqliteSaver` (dev) or `PostgresSaver` (prod) to `StateGraph.compile()` in `_build_graph()`. The `run_id` from Phase 1 becomes the `thread_id`. Crash at stage 4 → restart from stage 4 with same `run_id`
+- **Structured retry:** replace hardcoded `asyncio.sleep(90)` with `@retry(wait=wait_exponential(min=10, max=120), stop=stop_after_attempt(5))` via `tenacity`. Define typed exceptions `RateLimitError`, `AgentTimeoutError`, `AgentUnavailableError` in `shared/exceptions.py`
+- **Circuit Breaker:** `pybreaker` on `send_task_with_retry` in the orchestrator. Circuit opens after 3 transient errors in 5 minutes — fails immediately instead of waiting for timeout
+- **Payload Windowing:** configurable `MAX_NEWS_PAYLOAD` and `MAX_CANDIDATES_PAYLOAD` constants. NewsSentiment returns top-N news by relevance. Structural solution in Phase 6 (artifact store)
+- **Graceful Degradation:** conditional edge in LangGraph — if NewsSentiment fails, continues with `news=[]` and methodological note; if DataCollector fails on a ticker, that ticker is marked as `data_unavailable` and the others proceed
 
-**Tecnologie:** Kubernetes, Helm, Istio, MinIO / Azure Blob Storage, OpenTelemetry, Jaeger, Prometheus, Grafana, Loki, Argo CD
+**Technologies:** `langgraph-checkpoint-sqlite` (dev), `langgraph-checkpoint-postgres` (prod), `tenacity`, `pybreaker`
 
-**File principali:** `helm/` (nuovo), `shared/artifact_store.py` (nuovo), `orchestrator/main.py` (estrazione artifact refs)
+**Key files:** `orchestrator/main.py`, `shared/exceptions.py` (new)
 
-**Outcome verificabile:** nodo K8s in drain durante una run → Job rischedulato, riprende dal checkpoint; trace Jaeger mostra 5 span agente con latenze per `correlation_id`; `PipelineState` < 10KB anche con 50 news in input
-
----
-
-## Riepilogo
-
-| Fase | Nome | Complessità | Orizzonte |
-|------|------|-------------|-----------|
-| 1 | Osservabilità e Audit Trail di Base | Bassa | 2-3 settimane |
-| 2 | Sicurezza Inter-agente e Secret Management | Media | 3-4 settimane |
-| 3 | Resilienza, Retry e Checkpointing | Media | 4-6 settimane |
-| 4 | Containerizzazione e CI/CD | Media-Alta | 6-8 settimane |
-| 5 | Data Layer Certificato e Compliance MiFID II | Alta | 2-4 mesi |
-| 6 | Kubernetes, HA e Scalabilità Orizzontale | Alta | 4-6 mesi |
-
-**Nota architetturale:** tutti e 5 gli agenti usano Anthropic SDK nativo (`react_loop()` dove serve tool use, chiamata diretta per ReportWriter). BeeAI, OpenAI Agents SDK e Smolagents rimossi — dipendenze ridotte, pattern uniforme, nessun vincolo di prefill.
+**Verifiable outcome:** kill orchestrator process at stage 3 → restart with same `run_id` resumes from stage 4; unreachable agent opens circuit breaker after 3 failures; pipeline completes with NewsSentiment offline, producing report with degradation note
 
 ---
 
-## Testing Strategy (trasversale)
+### Phase 4 — Containerization and CI/CD Pipeline
+**Horizon:** 6-8 weeks | **Complexity:** Medium-High
 
-- **Fase 1-2:** unit test su `shared/audit.py`, `shared/sanitize.py`, `shared/secrets.py` — deterministici, coverage > 90%, nessun LLM
-- **Fase 3:** resilience test con mock server che simula crash e rate limit — verifica circuit breaker e checkpointing
-- **Fase 4:** contract test A2A in CI su mock server — wire format, agent card schema, versioning protocollo
-- **Fase 5:** golden dataset (3-5 run con input fisso) — verifica proprietà strutturali dell'output, non il testo
-- **Fase 6:** load test con K6/Locust — 10 run concorrenti, latenza P95, comportamento checkpointer sotto carico
+**Issues resolved:** non-reproducible environment, unversioned prompts, no A2A contract testing
 
----
+**Interventions:**
+- **Dockerfile per agent** in each `agents/{agent}/Dockerfile`. Base image `python:3.11-slim`. Separate orchestrator image. Handle the `sys.path.insert()` dependency in `agent.py` files (resolve with proper packaging)
+- **Docker Compose** at root: 5 agents + orchestrator + PostgreSQL (checkpointing) on internal `agents-net` network. Ports 8001-8005 not exposed on host
+- **CI/CD Pipeline** (GitHub Actions or Azure DevOps): lint (`ruff`), type check (`mypy` on `shared/`), offline smoke tests, A2A contract tests
+- **A2A contract tests** in `tests/test_contracts.py`: verify every agent card complies with `AgentCard` schema, `tasks/send` is implemented, wire format matches `A2ATaskResult` — runs without real LLM via `httpx.MockTransport`
+- **Prompts as files:** move hardcoded system prompts (`_REPORT_SYSTEM`, `_QA_SYSTEM`, `_INSTRUCTIONS`) from strings in `agent.py` to files `agents/{agent}/prompts/system.md`. `agent.py` reads at startup. The `prompt_hash` from Phase 1 becomes SHA-256 of the file — trackable with `git log`
+- **A2A protocol versioning:** `version: "1.0"` field in `JsonRpcRequest` and `AgentCard`. CI verifies consistency with `pyproject.toml`
 
-## Evoluzione futura dell'Orchestratore — da Sequencer a Reasoning Agent
+**Technologies:** Docker, Docker Compose, GitHub Actions / Azure DevOps, `ruff`, `mypy`, `schemathesis`
 
-L'orchestratore attuale è un sequencer glorificato: esegue i 5 nodi in ordine fisso indipendentemente dall'input, senza capacità di ragionamento su cosa fare e perché. Il grafo LangGraph è lineare e non sfrutta nessuna delle sue feature avanzate.
+**Key files:** `Dockerfile` per agent (new), `docker-compose.yml` (new), `.github/workflows/ci.yml` (new), `agents/{agent}/prompts/system.md` (new)
 
-L'obiettivo a lungo termine è trasformarlo in un **orchestratore reasoning-first**: un agente che riceve l'input dell'utente, valuta il contesto, e decide autonomamente quali agenti coinvolgere, in quale ordine, e con quale profondità di analisi.
-
-- **Routing dinamico basato sull'input:** se l'utente specifica un singolo ticker con tesi già formata, l'orchestratore può saltare NewsSentiment e FundamentalAnalyst e delegare direttamente a RiskAssessor. Se riceve un tema di mercato senza ticker, può avviare un loop di discovery prima di procedere con l'analisi fondamentale.
-- **Parallelismo controllato dal reasoning:** DataCollector e NewsSentiment sono logicamente indipendenti — un orchestratore intelligente li eseguirebbe in parallelo (`asyncio.gather`) invece di in serie, riducendo la latenza della pipeline del 30-40%.
-- **Loop di raffinamento:** se il FundamentalAnalyst identifica meno di 2 candidati validi, l'orchestratore può decidere autonomamente di rieseguire NewsSentiment con un focus diverso, o di espandere l'universo dei ticker, prima di procedere al reporting.
-- **Tool calling come primitiva:** ogni agente A2A diventa un tool nel senso LLM — l'orchestratore li chiama con `tool_use` tramite il cloud provider (Bedrock/Vertex/Azure AI Foundry), e il modello decide la sequenza ottimale in base al contesto accumulato nel `PipelineState`.
-- **Human-in-the-loop:** LangGraph supporta `interrupt_before` su qualsiasi nodo — l'orchestratore reasoning può fermarsi dopo FundamentalAnalyst, presentare i candidati all'analista umano per validazione, e riprendere solo dopo conferma.
-
-Questo intervento è architetturalmente separato dalle Fasi 1-6 (non è un prerequisito né un blocco) e richiede che la Fase 0b (astrazione `shared/llm_client.py`) sia completata per avere un client cloud-managed su cui il reasoning possa girare. Il punto di ingresso naturale è dopo la Fase 3 (checkpointing disponibile per supportare i loop di raffinamento) e prima della Fase 6 (prima di scalare, ottimizzare la logica).
+**Verifiable outcome:** `docker compose up` starts everything without manual config; PR that breaks the A2A wire format fails CI; change to `system.md` produces a different `prompt_hash` in the audit log
 
 ---
 
-## Verifica end-to-end del piano completato
+### Phase 5 — Certified Data Layer and MiFID II/MAR Compliance
+**Horizon:** 2-4 months | **Complexity:** High
 
-Al termine di tutte le fasi:
-1. `docker compose up` (o `kubectl apply -f helm/`) avvia il sistema completo
-2. `uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI` completa con successo
-3. L'audit log mostra per ogni agente: `correlation_id`, `prompt_hash`, `model_id`, `token_usage`, `data_lineage.source_provider`
-4. `POST /tasks` senza firma HMAC → HTTP 401
-5. Kill del processo orchestratore a metà run → riavvio con stesso `run_id` riprende dal checkpoint
-6. Trace Jaeger per il `correlation_id` mostra la sequenza completa dei 5 agenti
+**Issues resolved:** yfinance dependency (uncertified data, unofficial scraping), incomplete audit trail for MiFID II
+
+**Interventions:**
+- **Market Data Provider abstraction:** `shared/market_data/provider.py` with `MarketDataProvider` interface and methods `get_fundamentals(ticker)`, `get_price(ticker)`. Implementations: `YFinanceProvider` (dev), `AlphaVantageProvider` (validation), `RefinitivProvider` (production). Selection via `MARKET_DATA_PROVIDER` env var. DataCollector and FundamentalAnalyst call the interface only
+- **Data Lineage:** every `FundamentalsResult` includes `source_provider`, `source_timestamp`, `source_record_id`, `certifiable: bool`. Included in the audit log for every candidate analysed
+- **Audit Log on PostgreSQL:** migrate from JSONL to append-only `audit_events` table (no UPDATE/DELETE guaranteed by DB trigger or policy). Indexes on `correlation_id`, `run_id`, `agent`, `timestamp`. Alternative certified immutability: AWS S3 Object Lock in COMPLIANCE mode
+- **Prompt Registry:** table `prompt_versions` (`prompt_id`, `agent`, `content_hash`, `content`, `created_at`, `created_by`, `change_rationale`). The `prompt_hash` in the log references this table. CI updates the registry automatically on every change to `prompts/system.md` files
+- **Output artifact signing:** SHA-256 of every `report_{timestamp}.html` and `raw_{timestamp}.json` recorded in the audit log at generation time in `shared/report.py`
+
+**Recommended data providers:**
+- Alpha Vantage — free tier for validation, ~$50/month enterprise
+- Refinitiv Eikon Data API — EU financial services standard, guaranteed SLA, certified data for regulated use
+- Bloomberg B-PIPE — if contract already exists in the organisation
+
+**Minimum sequence for MiFID II (if compliance is the driver):** Phase 1 → Phase 5 → Phase 2. Phases 3, 4, 6 are operational but not direct compliance prerequisites.
+
+> **Operational note — current state (June 2026):** in `DEMO_MODE=true` no external data sources are called — this phase is not blocking for development. Organisational exploration is ongoing in spare time.
+
+**Organisational path (to explore):**
+
+All data and news providers must be licensed before any production deployment or client stakeholder demo. The path:
+
+1. **Check approved vendor list** — verify on ATCI portal whether Refinitiv LSEG or Bloomberg are already approved vendors in Accenture. If yes, skip the approval process and go directly to provisioning.
+2. **Technology Architecture Board** — if the vendor is not on the list, open an approval request with use case (equity research pipeline, financial services, MiFID II). Contacts: practice Security Lead + Technology Architecture Board.
+3. **Legal / Compliance** — evaluate news content redistribution clauses (Reuters Connect bundled in Refinitiv has restrictions on output to third parties).
+4. **Contract / provisioning** — Refinitiv LSEG is preferable as a single choice: covers both fundamentals (replaces yfinance stub) **and** Reuters news (replaces RSS feeds) with one contract and certified MiFID II SLA.
+
+**Why current RSS feeds are not enterprise-ready:**
+- Reuters RSS: commercial/analytical use requires a Reuters Connect licence
+- Yahoo Finance RSS / MarketWatch RSS: ToS prohibit automated use for commercial purposes
+- Investing.com ×2: already removed (explicit ToS violation)
+
+**Key files:** `shared/market_data/provider.py` (new), `shared/audit.py` (migration to DB), `shared/tools/yfinance_tool.py` (refactoring), `shared/report.py`
+
+**Verifiable outcome:** `MARKET_DATA_PROVIDER=alphavantage` completes with `data_lineage.source_provider: "alphavantage"` in the log; SQL query on `audit_events` returns all runs with a specific prompt version
+
+---
+
+### Phase 6 — Kubernetes, High Availability and Horizontal Scalability
+**Horizon:** 4-6 months | **Complexity:** High
+
+**Issues resolved:** orchestrator SPOF (complete), monolithic payload (complete), horizontal scalability
+
+**Interventions:**
+- **Helm Chart** for each agent: `Deployment` (replicas: 2), `Service`, `HorizontalPodAutoscaler`. `ExternalSecret` from Azure Key Vault via External Secrets Operator
+- **Orchestrator as Kubernetes Job:** not an always-on service but a `Job` triggered by API or `CronJob`. Each run is an independent Pod — SPOF eliminated
+- **Artifact Store:** `shared/artifact_store.py` with `put_artifact(run_id, key, data) -> str` and `get_artifact(ref) -> Any`. The `PipelineState` carries only references (`news_ref`, `fundamentals_ref`), not the data. Data in MinIO (self-hosted, S3-compatible) or Azure Blob Storage. Resolves the monolithic payload architecturally
+- **Service Mesh (Istio):** automatic inter-agent mTLS, distributed tracing (Jaeger), infrastructure-level circuit breaking. Phase 2 HMAC authentication can be deprecated
+- **Full OpenTelemetry:** instrument A2A calls as spans with attributes `correlation_id`, `model.id`, `token.*`. Export to Jaeger (traces) + Prometheus (metrics) + Loki (logs)
+- **Grafana Dashboard:** P50/P95/P99 latency per agent, token usage, pipeline success rate, uptime
+
+**Technologies:** Kubernetes, Helm, Istio, MinIO / Azure Blob Storage, OpenTelemetry, Jaeger, Prometheus, Grafana, Loki, Argo CD
+
+**Key files:** `helm/` (new), `shared/artifact_store.py` (new), `orchestrator/main.py` (artifact ref extraction)
+
+**Verifiable outcome:** K8s node drain during a run → Job rescheduled, resumes from checkpoint; Jaeger trace shows 5 agent spans with latencies for `correlation_id`; `PipelineState` < 10KB even with 50 news in input
+
+---
+
+## Summary
+
+| Phase | Name | Complexity | Horizon |
+|------|------|-------------|---------|
+| 1 | Observability and Basic Audit Trail | Low | 2-3 weeks |
+| 2 | Inter-agent Security and Secret Management | Medium | 3-4 weeks |
+| 3 | Resilience, Retry and Checkpointing | Medium | 4-6 weeks |
+| 4 | Containerization and CI/CD | Medium-High | 6-8 weeks |
+| 5 | Certified Data Layer and MiFID II Compliance | High | 2-4 months |
+| 6 | Kubernetes, HA and Horizontal Scalability | High | 4-6 months |
+
+**Architectural note:** all 6 agents use the native Anthropic SDK (`react_loop()` where tool use is needed, direct call for ReportWriter). BeeAI, OpenAI Agents SDK and Smolagents removed — reduced dependencies, uniform pattern, no prefill constraint.
+
+---
+
+## Testing Strategy (cross-cutting)
+
+- **Phases 1-2:** unit tests on `shared/audit.py`, `shared/sanitize.py`, `shared/secrets.py` — deterministic, coverage > 90%, no LLM
+- **Phase 3:** resilience tests with mock server simulating crashes and rate limits — verifies circuit breaker and checkpointing
+- **Phase 4:** A2A contract tests in CI on mock server — wire format, agent card schema, protocol versioning
+- **Phase 5:** golden dataset (3-5 runs with fixed input) — verifies structural properties of output, not free text
+- **Phase 6:** load testing with K6/Locust — 10 concurrent runs, P95 latency, checkpointer behaviour under load
+
+---
+
+## Future Orchestrator Evolution — from Sequencer to Reasoning Agent
+
+The current orchestrator is a glorified sequencer: it executes the 6 nodes in fixed order regardless of input, with no capacity to reason about what to do and why. The LangGraph graph is linear and exploits none of its advanced features.
+
+The long-term objective is to transform it into a **reasoning-first orchestrator**: an agent that receives user input, evaluates context, and autonomously decides which agents to involve, in what order, and with what depth of analysis.
+
+- **Input-driven dynamic routing:** if the user specifies a single ticker with an already-formed thesis, the orchestrator can skip NewsSentiment and FundamentalAnalyst and delegate directly to RiskAssessor. If it receives a market theme without tickers, it can start a discovery loop before proceeding with fundamental analysis.
+- **Reasoning-controlled parallelism:** DataCollector and NewsSentiment are logically independent — an intelligent orchestrator would run them in parallel (`asyncio.gather`) instead of in series, reducing pipeline latency by 30-40%.
+- **Refinement loop:** if FundamentalAnalyst identifies fewer than 2 valid candidates, the orchestrator can autonomously decide to re-run NewsSentiment with a different focus, or expand the ticker universe, before proceeding to reporting.
+- **Tool calling as a primitive:** each A2A agent becomes a tool in the LLM sense — the orchestrator calls them with `tool_use` via the cloud provider (Bedrock/Vertex/Azure AI Foundry), and the model decides the optimal sequence based on context accumulated in `PipelineState`.
+- **Human-in-the-loop:** LangGraph supports `interrupt_before` on any node — the reasoning orchestrator can pause after FundamentalAnalyst, present candidates to the human analyst for validation, and resume only after confirmation.
+
+This intervention is architecturally separate from Phases 1-6 (it is neither a prerequisite nor a blocker) and requires Phase 0b (`shared/llm_client.py` abstraction) to be complete in order to have a cloud-managed client on which reasoning can run. The natural entry point is after Phase 3 (checkpointing available to support refinement loops) and before Phase 6 (before scaling, optimise the logic).
+
+---
+
+## End-to-end verification of the completed plan
+
+At the end of all phases:
+1. `docker compose up` (or `kubectl apply -f helm/`) starts the complete system
+2. `uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI` completes successfully
+3. The audit log shows for each agent: `correlation_id`, `prompt_hash`, `model_id`, `token_usage`, `data_lineage.source_provider`
+4. `POST /tasks` without HMAC signature → HTTP 401
+5. Kill orchestrator process mid-run → restart with same `run_id` resumes from checkpoint
+6. Jaeger trace for `correlation_id` shows the complete sequence of all 6 agents

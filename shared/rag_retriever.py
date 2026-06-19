@@ -1,18 +1,18 @@
 """RAG retriever — keyword-based document retrieval from data/rag/documents/.
 
-Fase attuale: TF-IDF keyword scoring (no embeddings, no vector store).
-Strategia di upgrade: sostituire retrieve_context() con embedding-based retrieval
-su pgvector o ChromaDB quando il provider LLM (Bedrock) sarà disponibile.
-L'interfaccia pubblica (retrieve_context) rimane invariata.
+Current phase: TF-IDF keyword scoring (no embeddings, no vector store).
+Upgrade path: replace retrieve_context() with embedding-based retrieval
+on pgvector or ChromaDB when the LLM provider (Bedrock) is available.
+Public interface (retrieve_context) remains stable across upgrades.
 """
 import math
 import re
 from pathlib import Path
 
 _DOCS_DIR = Path(__file__).parent.parent / "data" / "rag" / "documents"
-_CHUNK_SIZE = 800       # caratteri per chunk
-_CHUNK_OVERLAP = 150    # overlap tra chunk consecutivi
-_TOP_K = 4              # chunk da restituire
+_CHUNK_SIZE = 800       # characters per chunk
+_CHUNK_OVERLAP = 150    # overlap between consecutive chunks
+_TOP_K = 4              # chunks to return
 
 
 def _load_documents() -> list[dict]:
@@ -52,14 +52,14 @@ def _score(query_tokens: list[str], chunk_tokens: list[str],
 
 
 def retrieve_context(query_terms: list[str], top_k: int = _TOP_K) -> str:
-    """Ritorna i top_k chunk più rilevanti come stringa formattata.
+    """Return the top_k most relevant chunks as a formatted string.
 
     Args:
-        query_terms: ticker, temi o keyword da cercare nei documenti
-        top_k: numero massimo di chunk da restituire
+        query_terms: tickers, themes or keywords to search in documents
+        top_k: maximum number of chunks to return
 
     Returns:
-        Stringa pronta per essere iniettata nel prompt, vuota se nessun doc trovato.
+        String ready to inject into an LLM prompt; empty if no documents found.
     """
     docs = _load_documents()
     if not docs:

@@ -2,7 +2,7 @@
 
 ## 1. Workflow Diagram
 
-I tre workflow selezionabili via `mode`. Ogni nodo include modello LLM, tool esposti e scope funzionale.
+The three selectable workflows via `mode`. Each node includes the LLM model, exposed tools, and functional scope.
 
 ```mermaid
 flowchart TD
@@ -50,7 +50,7 @@ flowchart TD
 
 ## 2. Component Diagram
 
-Dipendenze strutturali tra layer: Orchestrator, Agenti, Shared Library, Storage ed Esterni.
+Structural dependencies between layers: Orchestrator, Agents, Shared Library, Storage and Externals.
 
 ```mermaid
 graph TB
@@ -134,16 +134,16 @@ graph TB
 
 ---
 
-## Note evolutive
+## Evolution Notes
 
-| Layer | Stato | Prossimi step |
+| Layer | Status | Next steps |
 |---|---|---|
-| Data Provider | stub — `NotImplementedError` | Fase 5: Refinitiv LSEG o Bloomberg B-PIPE |
-| RSS Feeds | operativo | Fase 5: verifica licenza commerciale |
-| LLM Provider | `local` (test) / `bedrock` (prod) | Valutare Vertex per EU data residency |
-| Storage | SQLite (`portfolio.db`) | Fase 5/6: upgrade a PostgreSQL |
-| Agent Memory | SQLite per-agent (Fase A+B) | Fase futura: vector store per RAG |
-| RAG Retriever | TF-IDF keyword (operativo) | Fase 5+: embedding-based con Bedrock Titan su pgvector/ChromaDB |
-| RAG Documents | 11 documenti sintetici in `data/rag/documents/` | Sostituire con documentazione interna reale |
-| Auth | HMAC inter-agente opzionale | Fase 5: mutual TLS o API gateway |
-| Orchestrator | LangGraph deterministico | LLM-ready: sostituire body nodi con `react_loop()` |
+| Data Provider | stub — `NotImplementedError` | Phase 5: Refinitiv LSEG or Bloomberg B-PIPE |
+| RSS Feeds | operational | Phase 5: verify commercial license |
+| LLM Provider | `local` (test) / `bedrock` (prod) | Evaluate Vertex for EU data residency |
+| Storage | SQLite (`portfolio.db`) | Phase 5/6: upgrade to PostgreSQL |
+| Agent Memory | SQLite per-agent (Phase A+B) | Future phase: vector store for RAG |
+| RAG Retriever | TF-IDF keyword (operational) | Phase 5+: embedding-based with Bedrock Titan on pgvector/ChromaDB |
+| RAG Documents | 11 synthetic documents in `data/rag/documents/` | Replace with real internal documentation |
+| Auth | optional inter-agent HMAC | Phase 5: mutual TLS or API gateway |
+| Orchestrator | deterministic LangGraph | LLM-ready: replace node bodies with `react_loop()` |

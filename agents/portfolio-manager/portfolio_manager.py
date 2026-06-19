@@ -161,7 +161,7 @@ def _build_full_mode_response(
                 "action": "SELL",
                 "shares": pos["shares"],
                 "price": pos["entry_price"],
-                "reason": f"Quality degradata a '{quality}' nel risk assessment — liquidazione posizione",
+                "reason": f"Quality degraded to '{quality}' in risk assessment — position liquidated",
             }
             sell_trades.append(sell_trade)
             all_trades.append(sell_trade)
@@ -191,7 +191,7 @@ def _build_full_mode_response(
 
             if current_weight >= 15.0:
                 all_trades.append({**trade, "action": "HOLD", "shares": 0,
-                                   "reason": trade.get("reason", "") + f" (peso {current_weight:.1f}% ≥ 15%, limite raggiunto)"})
+                                   "reason": trade.get("reason", "") + f" (weight {current_weight:.1f}% ≥ 15%, limit reached)"})
             else:
                 # Cap at weight limit: can invest at most up to 15% total capital
                 room = (0.15 * total_capital) - current_pos_value
@@ -205,7 +205,7 @@ def _build_full_mode_response(
                             {**p, "shares": p["shares"] + shares} if p["ticker"] == ticker else p
                             for p in new_positions
                         ]
-                        note = f" (aggiunta, peso {current_weight:.1f}%→{(current_pos_value+cost)/total_capital*100:.1f}%)"
+                        note = f" (added, weight {current_weight:.1f}%→{(current_pos_value+cost)/total_capital*100:.1f}%)"
                     else:
                         new_positions.append({
                             "ticker": ticker, "shares": shares,
@@ -217,7 +217,7 @@ def _build_full_mode_response(
                     all_trades.append(executed)
                 else:
                     all_trades.append({**trade, "action": "HOLD", "shares": 0,
-                                       "reason": trade.get("reason", "") + " (liquidità insufficiente)"})
+                                       "reason": trade.get("reason", "") + " (insufficient cash)"})
         elif action == "SELL":
             if ticker in existing and ticker not in {t["ticker"] for t in sell_trades}:
                 pos = existing[ticker]
@@ -237,37 +237,37 @@ def _build_full_mode_response(
         p["ticker"] for p in new_positions
         if total_value > 0 and (p["shares"] * p["entry_price"]) / total_value * 100 > 20
     ]
-    ow_note = f" Overweight: {', '.join(ow)}." if ow else " Nessuna posizione overweight."
+    ow_note = f" Overweight: {', '.join(ow)}." if ow else " No overweight positions."
 
     if buy_trades or sell_trades:
         sell_note = (
-            f"Liquidate {len(sell_trades)} posizione/i "
-            f"({', '.join(t['ticker'] for t in sell_trades)}) per qualità degradata. "
+            f"Liquidated {len(sell_trades)} position(s) "
+            f"({', '.join(t['ticker'] for t in sell_trades)}) due to degraded quality. "
             if sell_trades else ""
         )
         pos_str = ", ".join(
-            f"{p['ticker']} ({p['shares']} azioni, ~{p['shares']*p['entry_price']/total_value*100:.1f}%)"
+            f"{p['ticker']} ({p['shares']} shares, ~{p['shares']*p['entry_price']/total_value*100:.1f}%)"
             for p in new_positions if total_value > 0
         )
         buy_note = (
-            f"Aperti {len(buy_trades)} long: {pos_str}. "
-            if buy_trades else "Nessun nuovo acquisto. "
+            f"Opened {len(buy_trades)} long(s): {pos_str}. "
+            if buy_trades else "No new purchases. "
         )
         review = (
             sell_note + buy_note
-            + f"Cash residuo: {cash_after:,.2f} USD ({cash_pct:.1f}% del portafoglio).{ow_note}"
+            + f"Remaining cash: {cash_after:,.2f} USD ({cash_pct:.1f}% of portfolio).{ow_note}"
         )
     else:
         holds = [t["ticker"] for t in all_trades if t["action"] == "HOLD"]
-        hold_note = f" Posizioni mantenute: {', '.join(holds)}." if holds else ""
+        hold_note = f" Positions held: {', '.join(holds)}." if holds else ""
         pos_str = (
-            ", ".join(f"{p['ticker']} ({p['shares']} azioni)" for p in new_positions)
-            or "nessuna"
+            ", ".join(f"{p['ticker']} ({p['shares']} shares)" for p in new_positions)
+            or "none"
         )
         review = (
-            f"Nessuna nuova operazione.{hold_note} "
-            f"Posizioni correnti: {pos_str}. "
-            f"Cash: {cash_after:,.2f} USD ({cash_pct:.1f}% del portafoglio).{ow_note}"
+            f"No new trades.{hold_note} "
+            f"Current positions: {pos_str}. "
+            f"Cash: {cash_after:,.2f} USD ({cash_pct:.1f}% of portfolio).{ow_note}"
         )
 
     n = len(buy_trades) + len(sell_trades)
@@ -348,8 +348,8 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
             )
             n = data.pop("_n_executed", 0)
             message = (
-                f"Portfolio full: {n} trade(s) eseguiti."
-                if n > 0 else "Portfolio full: nessuna nuova operazione."
+                f"Portfolio full: {n} trade(s) executed."
+                if n > 0 else "Portfolio full: no new trades."
             )
             result = A2ATaskResult.ok(task.id, message, data=data)
         write_audit_event(make_audit_event(

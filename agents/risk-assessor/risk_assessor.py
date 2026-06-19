@@ -1,10 +1,10 @@
-"""Risk Assessor agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8004.
+"""Risk Assessor agent — Anthropic SDK (native ReAct) + FastAPI, port 8004.
 
-Riceve i candidati equity dal Fundamental Analyst e produce:
-- Scenari base/bull/bear per ogni candidato
-- Scoring su 5 dimensioni (1-10 ciascuna, max 50 totale)
-- Guardrail: rifiuta l'output se i dati di volatilità (52w range, P/E) sono assenti.
-Sostituisce BeeAI ReActAgent con react_loop nativo Anthropic SDK.
+Receives equity candidates from Fundamental Analyst and produces:
+- Base/bull/bear scenarios for each candidate
+- Scoring across 5 dimensions (1-10 each, max 50 total)
+- Guardrail: rejects output if volatility data (52w range, P/E) is absent.
+Replaces BeeAI ReActAgent with native Anthropic SDK react_loop.
 """
 import asyncio
 import json

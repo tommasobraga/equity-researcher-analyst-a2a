@@ -1,12 +1,12 @@
-"""Orchestrator API — FastAPI, porta 8000.
+"""Orchestrator API — FastAPI, port 8000.
 
-Interfaccia HTTP per l'orchestratore LangGraph.
-Riceve richieste con intent esplicito (mode) e le instrada ai workflow giusti.
+HTTP interface for the LangGraph orchestrator.
+Accepts requests with explicit intent (mode) and routes them to the correct workflow.
 
 Endpoints:
-  POST /research  — avvia un workflow (analyze | portfolio | full)
-  GET  /portfolio — stato corrente del portafoglio SQLite
-  GET  /health    — health aggregato di tutti e 6 gli agenti
+  POST /research  — start a workflow (analyze | portfolio | full)
+  GET  /portfolio — current portfolio state from SQLite
+  GET  /health    — aggregated health check for all 6 agents
 """
 import sys
 from pathlib import Path
@@ -24,7 +24,7 @@ from shared.portfolio_db import load_portfolio_state
 
 app = FastAPI(
     title="Equity Researcher A2A — Orchestrator API",
-    description="Director API: 3 workflow selezionabili (analyze | portfolio | full)",
+    description="Director API: 3 selectable workflows (analyze | portfolio | full)",
     version="3.0.0",
 )
 
@@ -49,7 +49,7 @@ class ResearchRequest(BaseModel):
 
 @app.post("/research")
 async def research(req: ResearchRequest):
-    """Avvia un workflow e restituisce il risultato completo.
+    """Start a workflow and return the full result.
 
     mode=analyze   → market analysis only (report in Italian)
     mode=portfolio → portfolio review only (no LLM analysis needed)
@@ -66,7 +66,7 @@ async def research(req: ResearchRequest):
 
 @app.get("/portfolio")
 async def portfolio():
-    """Restituisce lo stato corrente del portafoglio da SQLite."""
+    """Return the current portfolio state from SQLite."""
     try:
         state = await load_portfolio_state()
         return JSONResponse(state)
@@ -76,7 +76,7 @@ async def portfolio():
 
 @app.get("/health")
 async def health():
-    """Health check aggregato di tutti e 6 gli agenti."""
+    """Aggregated health check for all 6 agents."""
     status = await check_agents_health()
     http_status = 200 if status["status"] == "ok" else 207
     return JSONResponse(status, status_code=http_status)

@@ -1,13 +1,13 @@
 """HMAC-SHA256 authentication for A2A inter-agent calls.
 
-Ogni chiamata POST /tasks deve includere:
-  X-A2A-Timestamp: Unix timestamp UTC (secondi, stringa)
+Every POST /tasks call must include:
+  X-A2A-Timestamp: Unix UTC timestamp (seconds, string)
   X-A2A-Signature: HMAC-SHA256(secret, "{timestamp}.{body_bytes}")
 
-Finestra anti-replay: ±30 secondi. Richieste fuori finestra → HTTP 401.
+Anti-replay window: ±30 seconds. Requests outside the window → HTTP 401.
 
-Il secret condiviso è letto da shared/secrets.py con chiave A2A_SHARED_SECRET.
-In locale viene letto da .env; in produzione da Azure Key Vault o AWS Secrets Manager.
+The shared secret is read from shared/secrets.py under key A2A_SHARED_SECRET.
+Locally read from environment variables; in production from Azure Key Vault or AWS Secrets Manager.
 """
 import hashlib
 import hmac
@@ -37,11 +37,11 @@ def sign_request(body: bytes) -> dict[str, str]:
 
 
 class HMACMiddleware(BaseHTTPMiddleware):
-    """FastAPI middleware — verifica firma HMAC su ogni POST /tasks."""
+    """FastAPI middleware — verifies HMAC signature on every POST /tasks."""
 
     async def dispatch(self, request: Request, call_next):
         if request.method == "POST" and request.url.path == "/tasks":
-            # Se A2A_SHARED_SECRET non è configurato, HMAC è disabilitato
+            # If A2A_SHARED_SECRET is not set, HMAC is disabled
             if not os.getenv("A2A_SHARED_SECRET"):
                 return await call_next(request)
             secret = get_secret("A2A_SHARED_SECRET")

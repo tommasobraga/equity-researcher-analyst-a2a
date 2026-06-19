@@ -1,7 +1,7 @@
-"""News & Sentiment agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8002.
+"""News & Sentiment agent — Anthropic SDK (native ReAct) + FastAPI, port 8002.
 
-Legge i feed RSS finanziari e raggruppa le notizie in macro-temi
-di mercato rilevanti per equity US/EU.
+Reads financial RSS feeds and groups news into macro market themes
+relevant for US/EU equity.
 """
 import asyncio
 import json

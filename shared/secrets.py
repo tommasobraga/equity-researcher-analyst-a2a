@@ -1,17 +1,17 @@
 """Secret management — provider-agnostic factory.
 
-Seleziona il backend tramite env var SECRET_PROVIDER:
-  local  (default) — legge da .env / variabili d'ambiente
+Backend selected via SECRET_PROVIDER env var:
+  local  (default) — reads from environment variables
   azure            — Azure Key Vault (azure-keyvault-secrets + azure-identity)
   aws              — AWS Secrets Manager (boto3)
 
-Uso:
+Usage:
     from shared.secrets import get_secret
     api_key = get_secret("ANTHROPIC_API_KEY")
 
-In locale il nome della chiave è il nome della variabile d'ambiente (es. ANTHROPIC_API_KEY).
-In Azure Key Vault i nomi sono normalizzati in kebab-case (es. anthropic-api-key).
-In AWS Secrets Manager il nome viene usato così com'è, a meno di override.
+Locally the key name is the environment variable name (e.g. ANTHROPIC_API_KEY).
+In Azure Key Vault names are normalised to kebab-case (e.g. anthropic-api-key).
+In AWS Secrets Manager the name is used as-is unless overridden.
 """
 import os
 from functools import lru_cache
@@ -71,7 +71,7 @@ def _aws_provider() -> Callable[[str], str]:
     def get(key: str) -> str:
         response = client.get_secret_value(SecretId=key)
         raw = response.get("SecretString") or response.get("SecretBinary", b"").decode()
-        # Se il secret è un JSON object, estrae il valore alla chiave 'value' o al nome stesso
+        # If the secret is a JSON object, extract value at key 'value' or the key name itself
         try:
             parsed = _json.loads(raw)
             if isinstance(parsed, dict):

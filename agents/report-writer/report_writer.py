@@ -1,8 +1,8 @@
-"""Report Writer agent — Anthropic API diretta + FastAPI, porta 8009.
+"""Report Writer agent — direct Anthropic API + FastAPI, port 8009.
 
-Produce il report finale in italiano: executive summary + JSON strutturato.
-Include un passaggio di QA interno prima di restituire l'output.
-Mappa report_writer + qa_reviewer di CrewAI.
+Produces the final report in Italian: executive summary + structured JSON.
+Includes an internal QA pass before returning the output.
+Maps to report_writer + qa_reviewer from the original CrewAI pipeline.
 """
 import copy
 import json

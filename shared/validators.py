@@ -70,14 +70,14 @@ def validate(report: Report | None) -> list[Violation]:
     if report is None:
         violations.append(Violation(
             rule="report_parsable", severity="error", ticker=None,
-            message="Il report non è parsabile: JSON mancante, troncato o malformato.",
+            message="Report is not parseable: JSON missing, truncated or malformed.",
         ))
         return violations
 
     if len(report.candidati) > 5:
         violations.append(Violation(
             rule="candidate_count", severity="warning", ticker=None,
-            message=f"Report contiene {len(report.candidati)} candidati (massimo 5).",
+            message=f"Report contains {len(report.candidati)} candidates (maximum 5).",
         ))
 
     for c in report.candidati:
@@ -85,58 +85,58 @@ def validate(report: Report | None) -> list[Violation]:
 
         if c.ticker.upper().endswith(".L"):
             violations.append(Violation(rule="no_uk_stocks", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: titolo LSE (UK) — escluso dall'universo."))
+                message=f"{c.ticker}: LSE (UK) stock — excluded from universe."))
 
         crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(f"{c.ticker} {c.azienda}")}
         if crypto_hits:
             violations.append(Violation(rule="no_crypto", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: keyword crypto rilevata ({', '.join(sorted(crypto_hits))})."))
+                message=f"{c.ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))})."))
 
         if c.mercato not in _VALID_MARKETS:
             violations.append(Violation(rule="market_scope", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: mercato='{c.mercato}' — solo US e EU ammessi."))
+                message=f"{c.ticker}: market='{c.mercato}' — only US and EU allowed."))
 
         match = _DIRECTIVE_RE.search(text)
         if match:
             violations.append(Violation(rule="no_buy_sell_directives", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: direttiva esplicita trovata — '{match.group()}'."))
+                message=f"{c.ticker}: explicit buy/sell directive found — '{match.group()}'."))
 
         if len(c.evidenze_citate) < 2:
             violations.append(Violation(rule="citation_count", severity="warning", ticker=c.ticker,
-                message=f"{c.ticker}: {len(c.evidenze_citate)} news citate (minimo 2)."))
+                message=f"{c.ticker}: {len(c.evidenze_citate)} news cited (minimum 2)."))
         for nid in c.evidenze_citate:
             if not _NEWS_ID_RE.match(nid):
                 violations.append(Violation(rule="citation_format", severity="warning", ticker=c.ticker,
-                    message=f"{c.ticker}: ID news non valido '{nid}' (formato atteso: N1, N2, ...)."))
+                    message=f"{c.ticker}: invalid news ID '{nid}' (expected format: N1, N2, ...)."))
 
         expected = sum(getattr(c.scoring, d) for d in _SCORING_DIMS)
         if c.scoring.totale != expected:
             violations.append(Violation(rule="score_arithmetic", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: scoring.totale={c.scoring.totale} ma somma dimensioni={expected}."))
+                message=f"{c.ticker}: scoring.totale={c.scoring.totale} but sum of dimensions={expected}."))
 
         for dim in _SCORING_DIMS:
             val = getattr(c.scoring, dim)
             if not (1 <= val <= 10):
                 violations.append(Violation(rule="score_range", severity="error", ticker=c.ticker,
-                    message=f"{c.ticker}: scoring.{dim}={val} fuori range 1–10."))
+                    message=f"{c.ticker}: scoring.{dim}={val} outside range 1–10."))
 
         if c.rating_qualita.lower() not in _VALID_RATINGS:
             violations.append(Violation(rule="quality_rating", severity="warning", ticker=c.ticker,
-                message=f"{c.ticker}: rating_qualita='{c.rating_qualita}' non è uno di alta|media|bassa."))
+                message=f"{c.ticker}: rating_qualita='{c.rating_qualita}' is not one of alta|media|bassa."))
 
         if c.consenso_analisti.giudizio_sintetico.lower() not in _VALID_GIUDIZI:
             violations.append(Violation(rule="consensus_giudizio", severity="warning", ticker=c.ticker,
-                message=f"{c.ticker}: giudizio_sintetico='{c.consenso_analisti.giudizio_sintetico}' non è un valore standard."))
+                message=f"{c.ticker}: giudizio_sintetico='{c.consenso_analisti.giudizio_sintetico}' is not a standard value."))
 
     for t in report.temi:
         text = _full_text_tema(t)
         crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(text)}
         if crypto_hits:
             violations.append(Violation(rule="no_crypto", severity="error", ticker=None,
-                message=f"Tema '{t.tema_id}': keyword crypto rilevata ({', '.join(sorted(crypto_hits))})."))
+                message=f"Theme '{t.tema_id}': crypto keyword detected ({', '.join(sorted(crypto_hits))})."))
         match = _DIRECTIVE_RE.search(text)
         if match:
             violations.append(Violation(rule="no_buy_sell_directives", severity="error", ticker=None,
-                message=f"Tema '{t.tema_id}': direttiva esplicita trovata — '{match.group()}'."))
+                message=f"Theme '{t.tema_id}': explicit buy/sell directive found — '{match.group()}'."))
 
     return violations

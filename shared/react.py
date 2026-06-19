@@ -1,13 +1,12 @@
 """Native Anthropic SDK ReAct loop — Reason → Act → Observe → repeat.
 
-Implementa il pattern ReAct direttamente sul tool_use di Claude senza
-framework intermedi. Il protocollo tool_use di Claude è strutturalmente
-un ReAct loop:
-  - stop_reason="tool_use"  → ACT   (Claude vuole chiamare uno strumento)
-  - esecuzione strumento    → OBSERVE (noi eseguiamo e restituiamo il risultato)
-  - stop_reason="end_turn"  → REASON finale + risposta
+Implements the ReAct pattern directly on Claude's tool_use protocol without
+intermediate frameworks. Claude's tool_use protocol is structurally a ReAct loop:
+  - stop_reason="tool_use"  → ACT   (Claude wants to call a tool)
+  - tool execution          → OBSERVE (we execute and return the result)
+  - stop_reason="end_turn"  → final REASON + response
 
-Uso:
+Usage:
     result = await react_loop(
         client=anthropic_client,
         system="...",
@@ -61,18 +60,18 @@ async def react_loop(
             messages=messages,
         )
 
-        # REASON → risposta finale
+        # REASON → final response
         if response.stop_reason == "end_turn":
             for block in response.content:
                 if hasattr(block, "text"):
                     return block.text
             return ""
 
-        # ACT → Claude chiama uno o più strumenti
+        # ACT → Claude calls one or more tools
         if response.stop_reason == "tool_use":
             messages.append({"role": "assistant", "content": response.content})
 
-            # OBSERVE → eseguiamo ogni tool call e raccogliamo i risultati
+            # OBSERVE → execute each tool call and collect results
             tool_results = []
             for block in response.content:
                 if block.type == "tool_use":

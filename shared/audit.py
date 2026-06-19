@@ -1,10 +1,10 @@
-"""Audit trail — append-only JSONL per ogni run della pipeline.
+"""Audit trail — append-only JSONL for every pipeline run.
 
-Ogni evento include correlation_id, agent, model_id, duration_ms,
-status, prompt_hash, input_hash, output_hash e token_usage opzionale.
+Each event includes correlation_id, agent, model_id, duration_ms,
+status, prompt_hash, input_hash, output_hash and optional token_usage.
 
-Il prompt_hash (SHA-256 del system prompt) traccia silenziosamente
-le modifiche ai prompt hardcoded senza versioning esplicito.
+prompt_hash (SHA-256 of the system prompt) silently tracks changes
+to hardcoded prompts without explicit versioning.
 """
 import hashlib
 import json

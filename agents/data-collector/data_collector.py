@@ -1,7 +1,7 @@
-"""Data Collector agent — Anthropic SDK (ReAct nativo) + FastAPI, porta 8001.
+"""Data Collector agent — Anthropic SDK (native ReAct) + FastAPI, port 8001.
 
-Riceve una lista di ticker equity via A2A e restituisce i fondamentali
-da provider certificato (Fase 5 pending — DEMO_MODE=true in sviluppo locale).
+Receives a list of equity tickers via A2A and returns fundamentals
+from a certified provider (Phase 5 pending — DEMO_MODE=true for local development).
 """
 import asyncio
 import json

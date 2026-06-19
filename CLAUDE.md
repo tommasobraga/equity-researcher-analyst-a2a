@@ -35,8 +35,8 @@ curl -X POST http://localhost:8000/research \
   -H "Content-Type: application/json" \
   -d '{"tickers":["AAPL","MSFT"],"mode":"analyze"}'
 
-curl http://localhost:8000/portfolio   # stato corrente portafoglio
-curl http://localhost:8000/health      # health aggregato 6 agenti
+curl http://localhost:8000/portfolio   # current portfolio state
+curl http://localhost:8000/health      # aggregated health for all 6 agents
 
 # Health check a running agent
 curl http://localhost:8001/health
@@ -109,30 +109,31 @@ Every agent follows the same pattern:
 
 ### Shared tools
 
-- `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. **Stub only** — yfinance rimosso (scraping non ufficiale, no licenza commerciale, incompatibile MiFID II). Le funzioni lanciano `NotImplementedError`. Integrazione provider certificato (Refinitiv LSEG / Bloomberg B-PIPE / Alpha Vantage enterprise) pianificata in **Fase 5**. In `DEMO_MODE=true` queste funzioni non vengono mai chiamate.
-- `shared/tools/rss_feed.py` — `fetch_rss_news()` reads RSS feeds (Reuters, Yahoo Finance, MarketWatch) with retry logic. Licenza commerciale da verificare in Fase 5.
-- `shared/portfolio_db.py` — `init_db()` / `load_portfolio_state()` / `save_portfolio_state()`: persistenza SQLite per il portafoglio fittizio (`output/portfolio.db`). Seed iniziale 100.000 USD. Upgrade naturale a PostgreSQL in Fase 5/6.
-- `data/rag/documents/` — 11 documenti sintetici (investment policy, note settoriali, metodologia scoring, contesto macro, watchlist). Sostituire con documentazione interna reale quando disponibile.
+- `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. **Stub only** — yfinance removed (unofficial scraping, no commercial licence, MiFID II incompatible). Functions raise `NotImplementedError`. Certified provider integration (Refinitiv LSEG / Bloomberg B-PIPE / Alpha Vantage enterprise) planned for **Phase 5**. In `DEMO_MODE=true` these functions are never called.
+- `shared/tools/rss_feed.py` — `fetch_rss_news()` reads RSS feeds (Reuters, Yahoo Finance, MarketWatch) with retry logic. Commercial licence to be verified in Phase 5.
+- `shared/portfolio_db.py` — `init_db()` / `load_portfolio_state()` / `save_portfolio_state()`: SQLite persistence for the fictional portfolio (`output/portfolio.db`). Initial seed 100,000 USD. Natural upgrade to PostgreSQL in Phase 5/6.
+- `data/rag/documents/` — 11 synthetic documents (investment policy, sector notes, scoring methodology, macro context, watchlist). Replace with real internal documentation when available.
 
-### ReAct loop nativo
+### Native ReAct loop
 
-Tutti e 4 gli agenti con tool use (DataCollector, NewsSentiment, FundamentalAnalyst, RiskAssessor) implementano il pattern ReAct (Reason → Act → Observe) direttamente con l'Anthropic SDK tool_use, senza framework intermedi. La logica è in `shared/react.py` (`react_loop()`). Ogni `stop_reason="tool_use"` è l'ACT, l'esecuzione del tool è l'OBSERVE, `stop_reason="end_turn"` è la risposta finale. ReportWriter non usa tool use — due chiamate dirette sequenziali (report + QA).
+All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, RiskAssessor) implement the ReAct pattern (Reason → Act → Observe) directly with the Anthropic SDK tool_use, without intermediate frameworks. The logic lives in `shared/react.py` (`react_loop()`). Each `stop_reason="tool_use"` is the ACT, tool execution is the OBSERVE, `stop_reason="end_turn"` is the final response. ReportWriter does not use tool use — two sequential direct calls (report + QA).
 
 ### Shared utilities
 
-- `shared/llm_client.py` — `get_llm_client()`: factory singleton per il client LLM; legge `LLM_PROVIDER` (local|bedrock|vertex|azure)
-- `shared/react.py` — `react_loop()`: ReAct loop nativo Anthropic SDK, usato da tutti gli agenti con tool use
-- `shared/audit.py` — `write_audit_event()` / `make_audit_event()`: audit trail JSONL append-only
-- `shared/demo.py` — `is_demo_mode()` / `load_demo_response()`: demo mode senza chiamate LLM
-- `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: autenticazione inter-agente
-- `shared/secrets.py` — `get_secret()`: factory secret provider-agnostic (local/azure/aws)
-- `shared/sanitize.py` — `sanitize_rss_item()`: sanitizzazione input RSS anti prompt-injection
-- `shared/rag_retriever.py` — `retrieve_context(query_terms, top_k)`: retrieval TF-IDF sui documenti in `data/rag/documents/`. Nodo parallelo nell'orchestratore (fan-out insieme a DataCollector e NewsSentiment). Output iniettato nel prompt di FundamentalAnalyst come `rag_context`. Interfaccia pubblica stabile: upgrade a embedding-based (Bedrock Titan) senza modifiche all'orchestratore.
+- `shared/llm_client.py` — `get_llm_client()`: singleton factory for the LLM client; reads `LLM_PROVIDER` (local|bedrock|vertex|azure)
+- `shared/react.py` — `react_loop()`: native Anthropic SDK ReAct loop, used by all agents with tool use
+- `shared/audit.py` — `write_audit_event()` / `make_audit_event()`: append-only JSONL audit trail
+- `shared/demo.py` — `is_demo_mode()` / `load_demo_response()`: demo mode without LLM calls
+- `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: inter-agent authentication
+- `shared/secrets.py` — `get_secret()`: provider-agnostic secret factory (local/azure/aws)
+- `shared/sanitize.py` — `sanitize_rss_item()`: RSS input sanitization against prompt injection
+- `shared/rag_retriever.py` — `retrieve_context(query_terms, top_k)`: TF-IDF retrieval on documents in `data/rag/documents/`. Parallel node in the orchestrator (fan-out alongside DataCollector and NewsSentiment). Output injected into FundamentalAnalyst prompt as `rag_context`. Stable public interface: upgrade to embedding-based (Bedrock Titan) without orchestrator changes.
+- `shared/llm_judge.py` — `run_judge()`: independent LLM grounding check. Runs after ReportWriter; receives original source material (news, fundamentals, RAG context) and returns a `JudgmentResult` (verdict: PASS/WARN/FAIL, grounding_score 0-100). FAIL triggers conservative mode in PortfolioManager.
 
 ### Orchestrator internals
 
-- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: entry point LangGraph. Compila il grafo con `_build_graph_builder()` a ogni chiamata (per consentire checkpointing corretto). `PipelineState` TypedDict con campi: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `ticker_history`, `previous_runs`.
-- `orchestrator/api.py` — FastAPI su porta 8000. `POST /research`, `GET /portfolio`, `GET /health`. Instrada le request a `run_pipeline()`.
+- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: LangGraph entry point. Compiles the graph with `_build_graph_builder()` on every call (to allow correct checkpointing). `PipelineState` TypedDict fields: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `judgment`, `ticker_history`, `previous_runs`.
+- `orchestrator/api.py` — FastAPI on port 8000. `POST /research`, `GET /portfolio`, `GET /health`. Routes requests to `run_pipeline()`.
 
 ### Domain constraints (hardcoded in agent prompts)
 
@@ -151,32 +152,32 @@ The JSON schema embedded in `_REPORT_SCHEMA` defines the canonical output struct
 
 ## Environment
 
-Non esiste un file `.env` — le variabili d'ambiente sono iniettate dalla piattaforma (ECS, Lambda) o settate nella shell in locale. Non usare `ANTHROPIC_API_KEY` diretta: pattern non approvato per workload Accenture.
+There is no `.env` file — environment variables are injected by the platform (ECS, Lambda) or set in the shell locally. Do not use `ANTHROPIC_API_KEY` directly: pattern not approved for Accenture workloads.
 
-### Sviluppo locale (demo mode — nessuna chiamata LLM)
+### Local development (demo mode — no LLM calls)
 
 ```powershell
 $env:DEMO_MODE = "true"
 uv run python agents/data-collector/data_collector.py
 ```
 
-### Produzione (AWS Bedrock)
+### Production (AWS Bedrock)
 
 ```
 DEMO_MODE=false
 LLM_PROVIDER=bedrock
-AWS_REGION=eu-west-1        # region assegnata dal ticket ServiceNow
+AWS_REGION=eu-west-1        # region assigned by ServiceNow ticket
 ```
-Credenziali gestite dal ruolo IAM sulla risorsa compute — nessun segreto in config.
+Credentials managed by the IAM role on the compute resource — no secrets in config.
 
-### Variabili disponibili
+### Available variables
 
-| Variabile | Valori | Default | Note |
+| Variable | Values | Default | Notes |
 |---|---|---|---|
-| `DEMO_MODE` | `true\|false` | `false` | `true` = nessuna chiamata LLM, dati da `agents/*/demo/response.json` |
-| `LLM_PROVIDER` | `local\|bedrock\|vertex\|azure` | `local` | `local` richiede `ANTHROPIC_API_KEY` (solo test personali) |
-| `AWS_REGION` | es. `eu-west-1` | `us-east-1` | solo se `LLM_PROVIDER=bedrock` |
-| `VERTEX_REGION` | es. `europe-west4` | `us-east5` | solo se `LLM_PROVIDER=vertex` |
-| `VERTEX_PROJECT_ID` | GCP project ID | — | obbligatorio se `LLM_PROVIDER=vertex` |
-| `A2A_SHARED_SECRET` | hex 32 byte | — | HMAC inter-agente; se assente il middleware è disabilitato |
-| `SECRET_PROVIDER` | `local\|azure\|aws` | `local` | provider per `shared/secrets.py` |
+| `DEMO_MODE` | `true\|false` | `false` | `true` = no LLM calls, data from `agents/*/demo/response.json` |
+| `LLM_PROVIDER` | `local\|bedrock\|vertex\|azure` | `local` | `local` requires `ANTHROPIC_API_KEY` (personal testing only) |
+| `AWS_REGION` | e.g. `eu-west-1` | `us-east-1` | only if `LLM_PROVIDER=bedrock` |
+| `VERTEX_REGION` | e.g. `europe-west4` | `us-east5` | only if `LLM_PROVIDER=vertex` |
+| `VERTEX_PROJECT_ID` | GCP project ID | — | required if `LLM_PROVIDER=vertex` |
+| `A2A_SHARED_SECRET` | 32-byte hex | — | inter-agent HMAC; middleware disabled if absent |
+| `SECRET_PROVIDER` | `local\|azure\|aws` | `local` | provider for `shared/secrets.py` |

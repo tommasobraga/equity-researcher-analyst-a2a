@@ -1,4 +1,4 @@
-"""Smoke test: RAG retriever + LLM Judge + orchestrator graph build."""
+"""Smoke test: RAG retriever + LLM Judge + orchestrator graph compilation."""
 import sys
 from pathlib import Path
 
@@ -11,41 +11,41 @@ from shared.llm_judge import run_judge, JudgmentResult
 
 errors = []
 
-# 1 — grafo si compila
+# 1 — graph compiles
 try:
     graph = _build_graph_builder().compile()
     nodes = list(graph.nodes.keys())
-    print(f"OK  grafo compilato — nodi: {nodes}")
+    print(f"OK  graph compiled — nodes: {nodes}")
 except Exception as e:
-    errors.append(f"FAIL grafo: {e}")
+    errors.append(f"FAIL graph: {e}")
 
-# 2 — rag_retriever e llm_judge presenti nel grafo
+# 2 — rag_retriever and llm_judge present in graph
 for expected in ("rag_retriever", "llm_judge"):
     if expected not in nodes:
-        errors.append(f"FAIL {expected} mancante nel grafo")
+        errors.append(f"FAIL {expected} missing from graph")
     else:
-        print(f"OK  {expected} presente nel grafo")
+        print(f"OK  {expected} present in graph")
 
-# 3 — rag_context e judgment in PipelineState
+# 3 — rag_context and judgment in PipelineState
 for field in ("rag_context", "judgment"):
     if field not in PipelineState.__annotations__:
-        errors.append(f"FAIL {field} mancante in PipelineState")
+        errors.append(f"FAIL {field} missing from PipelineState")
     else:
-        print(f"OK  PipelineState.{field} presente")
-print(f"    totale campi PipelineState: {len(PipelineState.__annotations__)}")
+        print(f"OK  PipelineState.{field} present")
+print(f"    total PipelineState fields: {len(PipelineState.__annotations__)}")
 
 # 4 — RAG retriever query
 try:
     ctx = retrieve_context(["MSFT", "NVDA", "UCG.MI"])
     chunks = ctx.count("[Source:")
-    print(f"OK  RAG retriever — {chunks} chunk(s) per query MSFT/NVDA/UCG.MI")
+    print(f"OK  RAG retriever — {chunks} chunk(s) for query MSFT/NVDA/UCG.MI")
     if chunks > 0:
         first_source = ctx.split("\n")[0]
-        print(f"    primo chunk: {first_source}")
+        print(f"    first chunk: {first_source}")
 except Exception as e:
     errors.append(f"FAIL RAG retriever: {e}")
 
-# 5 — query senza ticker (fallback keyword)
+# 5 — query without tickers (fallback keywords)
 try:
     ctx2 = retrieve_context([])
     chunks2 = ctx2.count("[Source:")
@@ -66,7 +66,7 @@ try:
         rag_context="",
         correlation_id="smoke-test",
     ))
-    assert result.verdict == "PASS", f"Atteso PASS, ricevuto {result.verdict}"
+    assert result.verdict == "PASS", f"Expected PASS, got {result.verdict}"
     assert result.demo is True
     print(f"OK  LLM Judge demo — verdict: {result.verdict}, grounding_score: {result.grounding_score}")
 except Exception as e:
@@ -74,9 +74,9 @@ except Exception as e:
 
 print()
 if errors:
-    print("=== ERRORI ===")
+    print("=== ERRORS ===")
     for e in errors:
         print(f"  {e}")
     sys.exit(1)
 else:
-    print("Tutti i test superati.")
+    print("All tests passed.")
