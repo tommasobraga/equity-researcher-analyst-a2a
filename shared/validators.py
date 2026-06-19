@@ -33,7 +33,8 @@ _CRYPTO_RE = re.compile(
 _DIRECTIVE_RE = re.compile(
     r"\b(comprat[eio]|vendete?|acquistat[eio]|shortate?|"
     r"buy\s+now|sell\s+now|acquistare\s+subito|comprare\s+subito|"
-    r"investite\s+in|entrate\s+su)\b",
+    r"investite\s+in|entrate\s+su)"
+    r"(?:lo|la|li|le|ne|ci|vi|gli|mi|ti|si)?\b",
     re.IGNORECASE,
 )
 

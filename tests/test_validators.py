@@ -135,6 +135,27 @@ class TestNoBuySellDirectives:
         v = _violations(_report(temi=[tema]), "no_buy_sell_directives")
         assert len(v) == 1
 
+    # Pronominal clitics — Italian report generates forms like "acquistatelo"
+    def test_acquistatelo_clitic_is_error(self):
+        c = _candidato(tesi="Acquistatelo prima della trimestrale")
+        v = _violations(_report(c), "no_buy_sell_directives")
+        assert len(v) == 1
+
+    def test_comprateli_clitic_is_error(self):
+        c = _candidato(catalizzatore="Comprateli in accumulo graduale")
+        v = _violations(_report(c), "no_buy_sell_directives")
+        assert len(v) == 1
+
+    def test_vendetela_clitic_is_error(self):
+        c = _candidato(scenari=Scenari(bear="Vendetela se scende sotto 150"))
+        v = _violations(_report(c), "no_buy_sell_directives")
+        assert len(v) == 1
+
+    def test_acquistatene_clitic_is_error(self):
+        c = _candidato(tesi="Acquistatene una quota in questo contesto")
+        v = _violations(_report(c), "no_buy_sell_directives")
+        assert len(v) == 1
+
 
 # ── citation_count ─────────────────────────────────────────────────────────
 
