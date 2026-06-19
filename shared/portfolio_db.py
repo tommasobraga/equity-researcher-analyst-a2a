@@ -122,19 +122,41 @@ async def save_portfolio_state(portfolio_update: dict, correlation_id: str) -> N
             )
 
         if positions_after:
-            await db.execute("UPDATE positions SET status = 'closed' WHERE status = 'open'")
-            for pos in positions_after:
+            new_tickers = {p["ticker"] for p in positions_after}
+
+            # Close only positions that disappeared from positions_after (actual sells).
+            # HOLD positions are updated in-place to avoid phantom closed rows.
+            open_rows = await (
+                await db.execute("SELECT ticker FROM positions WHERE status = 'open'")
+            ).fetchall()
+            open_tickers = {r[0] for r in open_rows}
+
+            for ticker in open_tickers - new_tickers:
                 await db.execute(
-                    "INSERT INTO positions (ticker, shares, entry_price, entry_date, status) "
-                    "VALUES (?, ?, ?, ?, ?)",
-                    (
-                        pos["ticker"],
-                        pos["shares"],
-                        pos["entry_price"],
-                        pos.get("entry_date", now[:10]),
-                        pos.get("status", "open"),
-                    ),
+                    "UPDATE positions SET status = 'closed' WHERE ticker = ? AND status = 'open'",
+                    (ticker,),
                 )
+
+            for pos in positions_after:
+                ticker = pos["ticker"]
+                if ticker in open_tickers:
+                    await db.execute(
+                        "UPDATE positions SET shares = ?, entry_price = ?, entry_date = ? "
+                        "WHERE ticker = ? AND status = 'open'",
+                        (pos["shares"], pos["entry_price"], pos.get("entry_date", now[:10]), ticker),
+                    )
+                else:
+                    await db.execute(
+                        "INSERT INTO positions (ticker, shares, entry_price, entry_date, status) "
+                        "VALUES (?, ?, ?, ?, ?)",
+                        (
+                            ticker,
+                            pos["shares"],
+                            pos["entry_price"],
+                            pos.get("entry_date", now[:10]),
+                            pos.get("status", "open"),
+                        ),
+                    )
 
         for trade in trades:
             await db.execute(
