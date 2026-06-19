@@ -135,7 +135,7 @@ def test_report_writer(http: httpx.Client):
         f"News: {_DUMMY_NEWS}\n"
         f"Write the final Italian investment report."
     )
-    r = http.post(f"{base_url(8005)}/tasks", json=a2a_payload(text))
+    r = http.post(f"{base_url(8009)}/tasks", json=a2a_payload(text))
     result = _rpc_result(r)
     assert result["status"] == "completed"
     text_parts = [p for p in result["message"]["parts"] if p["type"] == "text"]
