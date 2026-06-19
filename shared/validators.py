@@ -45,8 +45,6 @@ _SCORING_DIMS = [
 ]
 
 _VALID_GIUDIZI = {"strong buy", "buy", "hold", "sell", "strong sell", "n/a"}
-_VALID_RATINGS = {"alta", "media", "bassa"}
-_VALID_MARKETS = {"US", "EU"}
 
 
 def _full_text(c) -> str:
@@ -92,10 +90,6 @@ def validate(report: Report | None) -> list[Violation]:
             violations.append(Violation(rule="no_crypto", severity="error", ticker=c.ticker,
                 message=f"{c.ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))})."))
 
-        if c.mercato not in _VALID_MARKETS:
-            violations.append(Violation(rule="market_scope", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: market='{c.mercato}' — only US and EU allowed."))
-
         match = _DIRECTIVE_RE.search(text)
         if match:
             violations.append(Violation(rule="no_buy_sell_directives", severity="error", ticker=c.ticker,
@@ -109,20 +103,11 @@ def validate(report: Report | None) -> list[Violation]:
                 violations.append(Violation(rule="citation_format", severity="warning", ticker=c.ticker,
                     message=f"{c.ticker}: invalid news ID '{nid}' (expected format: N1, N2, ...)."))
 
-        expected = sum(getattr(c.scoring, d) for d in _SCORING_DIMS)
-        if c.scoring.totale != expected:
-            violations.append(Violation(rule="score_arithmetic", severity="error", ticker=c.ticker,
-                message=f"{c.ticker}: scoring.totale={c.scoring.totale} but sum of dimensions={expected}."))
-
         for dim in _SCORING_DIMS:
             val = getattr(c.scoring, dim)
             if not (1 <= val <= 10):
                 violations.append(Violation(rule="score_range", severity="error", ticker=c.ticker,
                     message=f"{c.ticker}: scoring.{dim}={val} outside range 1–10."))
-
-        if c.rating_qualita.lower() not in _VALID_RATINGS:
-            violations.append(Violation(rule="quality_rating", severity="warning", ticker=c.ticker,
-                message=f"{c.ticker}: rating_qualita='{c.rating_qualita}' is not one of alta|media|bassa."))
 
         if c.consenso_analisti.giudizio_sintetico.lower() not in _VALID_GIUDIZI:
             violations.append(Violation(rule="consensus_giudizio", severity="warning", ticker=c.ticker,

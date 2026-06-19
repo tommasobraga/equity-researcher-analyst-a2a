@@ -50,14 +50,6 @@ def _parse_report(report_dict: dict) -> tuple[Report | None, bool]:
         return None, True
 
 
-def _auto_fix_scoring(report: Report) -> Report:
-    for c in report.candidati:
-        correct = sum(getattr(c.scoring, key) for key, _ in _SCORING_DIMS)
-        if c.scoring.totale != correct:
-            c.scoring.totale = correct
-    return report
-
-
 _DISPLAY_CORRECTION_PREFIXES = ("scoring.", "consenso_analisti.")
 
 
@@ -108,7 +100,6 @@ def generate_html(
     tema_map: dict[str, list[Candidato]] = {}
 
     if report:
-        report = _auto_fix_scoring(report)
         if corrections:
             report, applied_corrections = _apply_corrections(report, corrections)
         for c in report.candidati:
