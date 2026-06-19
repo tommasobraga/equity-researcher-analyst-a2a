@@ -2,7 +2,7 @@
 
 ## 1. Workflow Diagram
 
-The three selectable workflows via `mode`. Gate nodes (yellow) validate each agent's output before it enters the next stage. Soft gates (data_collector, news_sentiment) always pass and only normalise via Pydantic. Hard gates (fundamental_analyst, risk_assessor, report_writer) can fail-fast or trigger a reflection retry (max 1) with structured feedback injected into the agent prompt.
+The three selectable workflows via `mode`. Hard gate nodes (yellow) validate each agent's output before it enters the next stage — they can fail-fast or trigger a reflection retry (max 1) with structured feedback injected into the agent prompt. Soft gate validation (DataCollector, NewsSentiment) runs inline inside each agent node to preserve the symmetric 3-edge AND-join at FundamentalAnalyst.
 
 ```mermaid
 flowchart TD
@@ -19,14 +19,11 @@ flowchart TD
     MODE -->|"analyze / full"| DC & NS & RAG
     MODE -->|portfolio| PL
 
-    DC["DataCollector :8001<br/>Haiku 4.5 · ReAct<br/><i>soft fail → degraded</i>"]:::haiku
-    NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct"]:::haiku
+    DC["DataCollector :8001<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline · soft fail → degraded</i>"]:::haiku
+    NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline</i>"]:::haiku
     RAG["RAGRetriever<br/>TF-IDF · local"]:::infra
 
-    DC --> GDC["gate_dc<br/>soft"]:::gate
-    NS --> GNS["gate_ns<br/>soft"]:::gate
-
-    GDC & GNS & RAG --> FA
+    DC & NS & RAG --> FA
 
     FA["FundamentalAnalyst :8003<br/>Sonnet 4.6 · ReAct"]:::sonnet
     FA --> GFA["gate_fa<br/>hard"]:::gate
@@ -81,15 +78,15 @@ graph TB
 
     subgraph ORCHESTRATOR ["Orchestrator :8000"]
         API["api.py — FastAPI"]:::orc
-        GRAPH["main.py — LangGraph PipelineState"]:::orc
-        GATES["gates.py — 5 gate nodes<br/>soft + hard + retry"]:::gate
+        GRAPH["main.py — LangGraph PipelineState<br/><i>degraded: Annotated reducer</i>"]:::orc
+        GATES["gates.py — 3 hard gate nodes<br/>FA · RA · RW + retry<br/><i>soft gates inlined in DC · NS</i>"]:::gate
         API --> GRAPH
         GRAPH --> GATES
     end
 
     subgraph AGENTS ["Agent Layer — A2A JSON-RPC 2.0"]
-        DC["DataCollector :8001<br/>Haiku 4.5 · ReAct"]:::agent
-        NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct"]:::agent
+        DC["DataCollector :8001<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline</i>"]:::agent
+        NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline</i>"]:::agent
         FA["FundamentalAnalyst :8003<br/>Sonnet 4.6 · ReAct"]:::agent
         RA["RiskAssessor :8004<br/>Sonnet 4.6 · ReAct"]:::agent
         RW["ReportWriter :8009<br/>Sonnet 4.6 · direct"]:::agent
@@ -138,6 +135,7 @@ graph TB
 
     GATES --> PIPE_MDL
     GATES --> VALIDATORS
+    DC & NS --> PIPE_MDL
 
     LLC --> LLM_P
     TOOLS -->|"rss_feed.py"| RSS_P
@@ -165,6 +163,6 @@ graph TB
 | RAG Retriever | TF-IDF keyword (operational) | Phase 5+: embedding-based with Bedrock Titan on pgvector/ChromaDB |
 | RAG Documents | 11 synthetic documents in `data/rag/documents/` | Replace with real internal documentation |
 | Auth | optional inter-agent HMAC | Phase 5: mutual TLS or API gateway |
-| Orchestrator | deterministic LangGraph | LLM-ready: replace node bodies with `react_loop()` |
-| Validation Gates | operational — soft (DC, NS) + hard with reflection retry (FA, RA, RW) | Extend retry budget or add fallback agents in Phase 5 |
+| Orchestrator | deterministic LangGraph — `degraded` uses `Annotated` reducer for parallel writes | LLM-ready: replace node bodies with `react_loop()` |
+| Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
