@@ -200,8 +200,10 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     ]
     history_block = "\n\n".join(risk_history_parts)
 
+    gate_feedback = input_data.get("gate_feedback", "")
     user_prompt = (
-        (f"HISTORICAL RISK CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
+        (f"GATE VALIDATION FEEDBACK — fix these issues in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
+        + (f"HISTORICAL RISK CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
         + f"EQUITY CANDIDATES:\n{candidates_json}\n\n"
         "Now perform the risk assessment for each candidate."
     )

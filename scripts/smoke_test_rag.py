@@ -19,20 +19,29 @@ try:
 except Exception as e:
     errors.append(f"FAIL graph: {e}")
 
-# 2 — rag_retriever and llm_judge present in graph
-for expected in ("rag_retriever", "llm_judge"):
+# 2 — key nodes present in graph (agents + validation gates)
+for expected in (
+    "rag_retriever", "llm_judge",
+    "gate_data_collector", "gate_news_sentiment", "gate_fundamental_analyst",
+    "gate_risk_assessor", "gate_report_writer",
+):
     if expected not in nodes:
         errors.append(f"FAIL {expected} missing from graph")
     else:
         print(f"OK  {expected} present in graph")
 
-# 3 — rag_context and judgment in PipelineState
-for field in ("rag_context", "judgment"):
+# 3 — key fields in PipelineState
+for field in ("rag_context", "judgment", "retry_counts", "gate_feedback"):
     if field not in PipelineState.__annotations__:
         errors.append(f"FAIL {field} missing from PipelineState")
     else:
         print(f"OK  PipelineState.{field} present")
-print(f"    total PipelineState fields: {len(PipelineState.__annotations__)}")
+expected_fields = 21
+actual_fields = len(PipelineState.__annotations__)
+if actual_fields != expected_fields:
+    errors.append(f"FAIL PipelineState has {actual_fields} fields (expected {expected_fields})")
+else:
+    print(f"OK  PipelineState has {actual_fields} fields")
 
 # 4 — RAG retriever query
 try:

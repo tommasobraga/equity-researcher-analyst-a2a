@@ -60,6 +60,14 @@ from shared.portfolio_db import init_db, load_portfolio_state, save_portfolio_st
 from shared.rag_retriever import retrieve_context
 from shared.llm_judge import run_judge
 from shared.report import generate_html
+from orchestrator.gates import (
+    PASS, RETRY, FAIL,
+    node_gate_data_collector, route_gate_data_collector,
+    node_gate_news_sentiment, route_gate_news_sentiment,
+    node_gate_fundamental_analyst, route_gate_fundamental_analyst,
+    node_gate_risk_assessor, route_gate_risk_assessor,
+    node_gate_report_writer, route_gate_report_writer,
+)
 
 log = structlog.get_logger()
 
@@ -105,6 +113,8 @@ class PipelineState(TypedDict):
     judgment: dict          # LLM Judge result: verdict, grounding_score, issues, summary
     ticker_history: dict    # {ticker: {"fundamental": [...], "risk": [...]}} — loaded before FA
     previous_runs: list     # recent run_summaries — loaded before FA
+    retry_counts: dict      # {"gate_risk_assessor": 0, "gate_report_writer": 0}
+    gate_feedback: dict     # {"risk_assessor": "...", "report_writer": "..."}
 
 
 # ------------------------------------------------------------------ #
@@ -301,18 +311,6 @@ def _route_from_router(state: PipelineState) -> str | list:
     return [Send("data_collector", state), Send("news_sentiment", state), Send("rag_retriever", state)]
 
 
-def _route_after_fundamental(state: PipelineState) -> str:
-    """Fail-fast: skip risk_assessor and report_writer if no candidates identified."""
-    if not state.get("candidates"):
-        log.warning("pipeline.no_candidates", mode=state["mode"])
-        return END
-    return "risk_assessor"
-
-
-def _route_after_report(state: PipelineState) -> str:
-    return "llm_judge"
-
-
 def _route_after_judge(state: PipelineState) -> str:
     """In full mode, continue to portfolio branch; in analyze mode, persist memory and stop."""
     if state["mode"] == "full":
@@ -486,10 +484,15 @@ async def node_risk_assessor(state: PipelineState) -> dict:
         for t, v in state.get("ticker_history", {}).items()
         if v.get("risk")
     }
+    gate_feedback_text = state.get("gate_feedback", {}).get("risk_assessor", "")
     result = await send_task_with_retry(
         "risk_assessor",
         "Perform risk assessment and scoring for each candidate.",
-        data={"candidates": state["candidates"], "risk_history": ra_snippets},
+        data={
+            "candidates": state["candidates"],
+            "risk_history": ra_snippets,
+            "gate_feedback": gate_feedback_text,
+        },
         timeout=300.0,
         correlation_id=state["run_id"],
     )
@@ -504,6 +507,7 @@ async def node_risk_assessor(state: PipelineState) -> dict:
 
 async def node_report_writer(state: PipelineState) -> dict:
     print("\n[5/5] ReportWriter ← generating final report")
+    gate_feedback_text = state.get("gate_feedback", {}).get("report_writer", "")
     result = await send_task_with_retry(
         "report_writer",
         "Produce the final equity research report in Italian.",
@@ -513,6 +517,7 @@ async def node_report_writer(state: PipelineState) -> dict:
             "news": state["news"],
             "themes": state["themes"],
             "previous_runs_context": format_run_summaries(state.get("previous_runs", [])),
+            "gate_feedback": gate_feedback_text,
         },
         timeout=300.0,
         correlation_id=state["run_id"],
@@ -685,7 +690,7 @@ async def node_memory_writer(state: PipelineState) -> dict:
 def _build_graph_builder() -> StateGraph:
     builder = StateGraph(PipelineState)
 
-    # Nodes
+    # Nodes — analysis agents
     builder.add_node("router",               node_router)
     builder.add_node("data_collector",       node_data_collector)
     builder.add_node("news_sentiment",       node_news_sentiment)
@@ -698,25 +703,51 @@ def _build_graph_builder() -> StateGraph:
     builder.add_node("portfolio_manager",    node_portfolio_manager)
     builder.add_node("memory_writer",        node_memory_writer)
 
+    # Nodes — validation gates (1:1 with agents)
+    builder.add_node("gate_data_collector",      node_gate_data_collector)
+    builder.add_node("gate_news_sentiment",      node_gate_news_sentiment)
+    builder.add_node("gate_fundamental_analyst", node_gate_fundamental_analyst)
+    builder.add_node("gate_risk_assessor",       node_gate_risk_assessor)
+    builder.add_node("gate_report_writer",       node_gate_report_writer)
+
     builder.set_entry_point("router")
 
     # Router: fan-out to analysis branch OR go straight to portfolio branch
     builder.add_conditional_edges("router", _route_from_router)
 
-    # Analysis branch: fan-in at fundamental_analyst (waits for all three predecessors)
-    builder.add_edge("data_collector",      "fundamental_analyst")
-    builder.add_edge("news_sentiment",      "fundamental_analyst")
-    builder.add_edge("rag_retriever",       "fundamental_analyst")
+    # Fan-out branches → soft gates → fan-in at fundamental_analyst
+    builder.add_edge("data_collector", "gate_data_collector")
+    builder.add_conditional_edges("gate_data_collector", route_gate_data_collector, {PASS: "fundamental_analyst"})
 
-    # Conditional fail-fast after fundamental_analyst
+    builder.add_edge("news_sentiment", "gate_news_sentiment")
+    builder.add_conditional_edges("gate_news_sentiment", route_gate_news_sentiment, {PASS: "fundamental_analyst"})
+
+    builder.add_edge("rag_retriever", "fundamental_analyst")  # no gate for local RAG
+
+    # Hard gate after fundamental_analyst — fail-fast if no valid candidates
+    builder.add_edge("fundamental_analyst", "gate_fundamental_analyst")
     builder.add_conditional_edges(
-        "fundamental_analyst",
-        _route_after_fundamental,
-        {"risk_assessor": "risk_assessor", END: END},
+        "gate_fundamental_analyst",
+        route_gate_fundamental_analyst,
+        {PASS: "risk_assessor", FAIL: END},
     )
-    builder.add_edge("risk_assessor", "report_writer")
 
-    builder.add_edge("report_writer", "llm_judge")
+    # Hard gate after risk_assessor — reflection retry (max 1)
+    builder.add_edge("risk_assessor", "gate_risk_assessor")
+    builder.add_conditional_edges(
+        "gate_risk_assessor",
+        route_gate_risk_assessor,
+        {PASS: "report_writer", RETRY: "risk_assessor", FAIL: END},
+    )
+
+    # Hard gate after report_writer — reflection retry (max 1)
+    builder.add_edge("report_writer", "gate_report_writer")
+    builder.add_conditional_edges(
+        "gate_report_writer",
+        route_gate_report_writer,
+        {PASS: "llm_judge", RETRY: "report_writer", FAIL: END},
+    )
+
     builder.add_conditional_edges(
         "llm_judge",
         _route_after_judge,
@@ -762,6 +793,8 @@ async def run_pipeline(
         "judgment": {},
         "ticker_history": {},
         "previous_runs": [],
+        "retry_counts": {},
+        "gate_feedback": {},
     }
 
     health = await check_agents_health(mode=mode)

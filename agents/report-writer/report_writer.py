@@ -215,9 +215,11 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     news = input_data.get("news", [])
     themes = input_data.get("themes", [])
     prev_runs_ctx = input_data.get("previous_runs_context", "")
+    gate_feedback = input_data.get("gate_feedback", "")
 
     user_prompt = (
-        (f"CONTESTO RUN PRECEDENTI:\n{prev_runs_ctx}\n\n---\n\n" if prev_runs_ctx else "")
+        (f"GATE VALIDATION FEEDBACK — fix these errors in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
+        + (f"CONTESTO RUN PRECEDENTI:\n{prev_runs_ctx}\n\n---\n\n" if prev_runs_ctx else "")
         + f"Oggi è {today}.\n\n"
         f"NOTIZIE:\n{json.dumps(news, ensure_ascii=False)}\n\n"
         f"TEMI:\n{json.dumps(themes, ensure_ascii=False)}\n\n"

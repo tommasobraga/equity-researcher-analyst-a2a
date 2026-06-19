@@ -167,3 +167,9 @@ def generate_html(
     )
 
     return path, violations
+
+
+def validate_report(report_dict: dict) -> list[Violation]:
+    """Parse and validate report_dict. Returns all violations (parse errors + semantic)."""
+    report, parse_violations = _parse_report(report_dict)
+    return parse_violations + (validate(report) if report else [])
