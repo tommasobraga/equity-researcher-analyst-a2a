@@ -373,13 +373,22 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         if pm_mode == "full":
             candidates = input_data.get("candidates", [])
             risk_assessment = input_data.get("risk_assessment", [])
+            judgment = input_data.get("judgment", {})
+            conservative = judgment.get("verdict") == "FAIL"
+            conservative_note = (
+                "\n\nNOTE — LLM JUDGE FAIL: serious grounding issues detected in the report. "
+                "Operate in CONSERVATIVE MODE: do NOT execute any new BUY orders. "
+                "Only review existing positions for HOLD or SELL. "
+                f"Judge summary: {judgment.get('summary', '')}"
+                if conservative else ""
+            )
             user_prompt = (
                 f"CURRENT PORTFOLIO STATE:\n{json.dumps(portfolio_state, ensure_ascii=False)}\n\n"
                 f"EQUITY CANDIDATES:\n{json.dumps(candidates, ensure_ascii=False)}\n\n"
                 f"RISK ASSESSMENT:\n{json.dumps(risk_assessment, ensure_ascii=False)}\n\n"
                 "Produce portfolio decisions."
             )
-            system = _PM_FULL_SYSTEM.format(today=today)
+            system = _PM_FULL_SYSTEM.format(today=today) + conservative_note
         else:
             user_prompt = (
                 f"CURRENT PORTFOLIO STATE:\n{json.dumps(portfolio_state, ensure_ascii=False)}\n\n"

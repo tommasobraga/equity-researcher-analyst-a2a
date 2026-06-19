@@ -59,6 +59,7 @@ from shared.agent_memory import (
 )
 from shared.portfolio_db import init_db, load_portfolio_state, save_portfolio_state
 from shared.rag_retriever import retrieve_context
+from shared.llm_judge import run_judge
 from shared.report import generate_html
 
 log = structlog.get_logger()
@@ -102,6 +103,7 @@ class PipelineState(TypedDict):
     portfolio_state: dict   # loaded from SQLite by node_portfolio_loader
     portfolio_result: dict  # output from PortfolioManager agent
     rag_context: str        # retrieved from data/rag/documents/ — injected into FA prompt
+    judgment: dict          # LLM Judge result: verdict, grounding_score, issues, summary
     ticker_history: dict    # {ticker: {"fundamental": [...], "risk": [...]}} — loaded before FA
     previous_runs: list     # recent run_summaries — loaded before FA
 
@@ -309,6 +311,10 @@ def _route_after_fundamental(state: PipelineState) -> str:
 
 
 def _route_after_report(state: PipelineState) -> str:
+    return "llm_judge"
+
+
+def _route_after_judge(state: PipelineState) -> str:
     """In full mode, continue to portfolio branch; in analyze mode, persist memory and stop."""
     if state["mode"] == "full":
         return "portfolio_loader"
@@ -508,6 +514,34 @@ async def node_report_writer(state: PipelineState) -> dict:
     return {"report": report, "executive_summary": summary, "qa_verdict": qa}
 
 
+async def node_llm_judge(state: PipelineState) -> dict:
+    verdict_icons = {"PASS": "✓", "WARN": "⚠", "FAIL": "✗"}
+    print("\n[JUDGE] LLMJudge ← grounding check")
+    from shared.llm_client import get_llm_client
+    client = get_llm_client()
+    judgment = await run_judge(
+        client=client,
+        executive_summary=state.get("executive_summary", ""),
+        report_dict=state.get("report", {}),
+        news=state.get("news", []),
+        fundamentals=state.get("fundamentals", []),
+        rag_context=state.get("rag_context", ""),
+        correlation_id=state["run_id"],
+    )
+    icon = verdict_icons.get(judgment.verdict, "?")
+    print(f"      {icon} verdict: {judgment.verdict}  grounding_score: {judgment.grounding_score}/100")
+    if judgment.issues:
+        print(f"      issues: {len(judgment.issues)}")
+
+    degraded = dict(state.get("degraded", {}))
+    if judgment.verdict == "FAIL":
+        degraded["llm_judge_fail"] = judgment.summary
+    elif judgment.verdict == "WARN":
+        degraded["llm_judge_warn"] = judgment.summary
+
+    return {"judgment": judgment.to_dict(), "degraded": degraded}
+
+
 # ------------------------------------------------------------------ #
 # Graph nodes — portfolio branch                                       #
 # ------------------------------------------------------------------ #
@@ -573,6 +607,7 @@ async def node_portfolio_manager(state: PipelineState) -> dict:
         payload["candidates"] = state.get("candidates", [])
         payload["risk_assessment"] = state.get("risk_assessment", [])
         payload["report"] = state.get("report", {})
+        payload["judgment"] = state.get("judgment", {})
 
     result = await send_task_with_retry(
         "portfolio_manager",
@@ -645,6 +680,7 @@ def _build_graph_builder() -> StateGraph:
     builder.add_node("fundamental_analyst",  node_fundamental_analyst)
     builder.add_node("risk_assessor",        node_risk_assessor)
     builder.add_node("report_writer",        node_report_writer)
+    builder.add_node("llm_judge",            node_llm_judge)
     builder.add_node("portfolio_loader",     node_portfolio_loader)
     builder.add_node("portfolio_manager",    node_portfolio_manager)
     builder.add_node("memory_writer",        node_memory_writer)
@@ -667,10 +703,10 @@ def _build_graph_builder() -> StateGraph:
     )
     builder.add_edge("risk_assessor", "report_writer")
 
-    # After report_writer: memory_writer (analyze) or continue to portfolio branch (full)
+    builder.add_edge("report_writer", "llm_judge")
     builder.add_conditional_edges(
-        "report_writer",
-        _route_after_report,
+        "llm_judge",
+        _route_after_judge,
         {"portfolio_loader": "portfolio_loader", "memory_writer": "memory_writer"},
     )
 
@@ -710,6 +746,7 @@ async def run_pipeline(
         "portfolio_state": {},
         "portfolio_result": {},
         "rag_context": "",
+        "judgment": {},
         "ticker_history": {},
         "previous_runs": [],
     }
@@ -755,6 +792,7 @@ async def run_pipeline(
             qa_verdict=final_state["qa_verdict"],
             tickers=tickers,
             execution_seconds=execution_seconds,
+            judgment=final_state.get("judgment"),
         )
         print(f"\nReport HTML salvato in: {report_path}")
         if violations:
@@ -770,6 +808,7 @@ async def run_pipeline(
             "executive_summary": final_state["executive_summary"],
             "qa_verdict": final_state["qa_verdict"],
             "report": final_state["report"],
+            "judgment": final_state.get("judgment", {}),
             "report_path": str(report_path),
         })
 

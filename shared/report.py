@@ -96,6 +96,7 @@ def generate_html(
     tickers: list[str],
     execution_seconds: int | None = None,
     run_id: str | None = None,
+    judgment: dict | None = None,
 ) -> tuple[Path, list[Violation]]:
     report, json_failed = _parse_report(report_dict)
     now = datetime.now()
@@ -146,8 +147,12 @@ def generate_html(
     # Save raw pipeline state for debugging
     raw_path = _OUTPUT_DIR / f"raw_{timestamp}.json"
     raw_path.write_text(
-        json.dumps({"executive_summary": executive_summary, "report": report_dict, "qa_verdict": qa_verdict},
-                   indent=2, ensure_ascii=False),
+        json.dumps({
+            "executive_summary": executive_summary,
+            "report": report_dict,
+            "qa_verdict": qa_verdict,
+            "judgment": judgment or {},
+        }, indent=2, ensure_ascii=False),
         encoding="utf-8",
     )
 
