@@ -26,7 +26,7 @@ import time
 import uuid
 import webbrowser
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Annotated, Any, TypedDict
 
 import httpx
 import structlog
@@ -62,8 +62,8 @@ from shared.llm_judge import run_judge
 from shared.report import generate_html
 from orchestrator.gates import (
     PASS, RETRY, FAIL,
-    node_gate_data_collector, route_gate_data_collector,
-    node_gate_news_sentiment, route_gate_news_sentiment,
+    node_gate_data_collector,
+    node_gate_news_sentiment,
     node_gate_fundamental_analyst, route_gate_fundamental_analyst,
     node_gate_risk_assessor, route_gate_risk_assessor,
     node_gate_report_writer, route_gate_report_writer,
@@ -93,6 +93,11 @@ _RATE_LIMIT_PATTERN = re.compile(
 # Pipeline state                                                       #
 # ------------------------------------------------------------------ #
 
+def _merge_dicts(a: dict, b: dict) -> dict:
+    """Reducer for dict fields written by parallel nodes."""
+    return {**a, **b}
+
+
 class PipelineState(TypedDict):
     run_id: str
     mode: str               # "analyze" | "portfolio" | "full"
@@ -106,7 +111,7 @@ class PipelineState(TypedDict):
     report: dict
     executive_summary: str
     qa_verdict: str
-    degraded: dict          # {component: error_message}
+    degraded: Annotated[dict, _merge_dicts]  # {component: error_message}
     portfolio_state: dict   # loaded from SQLite by node_portfolio_loader
     portfolio_result: dict  # output from PortfolioManager agent
     rag_context: str        # retrieved from data/rag/documents/ — injected into FA prompt
@@ -376,8 +381,9 @@ async def node_data_collector(state: PipelineState) -> dict:
         degraded["data_collector_partial"] = f"No data for: {', '.join(unavailable)}"
         log.warning("node.partial", node="data_collector", missing=unavailable)
 
-    print(f"      → {len(fundamentals)} ticker(s) fetched")
-    return {"fundamentals": fundamentals, "degraded": degraded}
+    gate = node_gate_data_collector({"fundamentals": fundamentals, "degraded": degraded})
+    print(f"      → {len(gate['fundamentals'])} ticker(s) fetched")
+    return {"fundamentals": gate["fundamentals"], "degraded": gate["degraded"]}
 
 
 async def node_news_sentiment(state: PipelineState) -> dict:
@@ -408,8 +414,9 @@ async def node_news_sentiment(state: PipelineState) -> dict:
 
     news = (_extract_data(result, "news") or [])[:MAX_NEWS_PAYLOAD]
     themes = _extract_data(result, "themes") or []
-    print(f"      → {len(news)} news, {len(themes)} themes")
-    return {"news": news, "themes": themes}
+    gate = node_gate_news_sentiment({"news": news, "themes": themes, "degraded": state.get("degraded", {})})
+    print(f"      → {len(gate['news'])} news, {len(gate['themes'])} themes")
+    return {"news": gate["news"], "themes": gate["themes"], "degraded": gate["degraded"]}
 
 
 async def node_rag_retriever(state: PipelineState) -> dict:
@@ -536,7 +543,7 @@ async def node_llm_judge(state: PipelineState) -> dict:
     verdict_icons = {"PASS": "✓", "WARN": "⚠", "FAIL": "✗"}
     print("\n[JUDGE] LLMJudge ← grounding check")
     from shared.llm_client import get_llm_client
-    client = get_llm_client()
+    client = None if is_demo_mode() else get_llm_client()
     judgment = await run_judge(
         client=client,
         executive_summary=state.get("executive_summary", ""),
@@ -703,9 +710,7 @@ def _build_graph_builder() -> StateGraph:
     builder.add_node("portfolio_manager",    node_portfolio_manager)
     builder.add_node("memory_writer",        node_memory_writer)
 
-    # Nodes — validation gates (1:1 with agents)
-    builder.add_node("gate_data_collector",      node_gate_data_collector)
-    builder.add_node("gate_news_sentiment",      node_gate_news_sentiment)
+    # Nodes — validation gates (hard gates only; soft gates run inside agent nodes)
     builder.add_node("gate_fundamental_analyst", node_gate_fundamental_analyst)
     builder.add_node("gate_risk_assessor",       node_gate_risk_assessor)
     builder.add_node("gate_report_writer",       node_gate_report_writer)
@@ -715,14 +720,11 @@ def _build_graph_builder() -> StateGraph:
     # Router: fan-out to analysis branch OR go straight to portfolio branch
     builder.add_conditional_edges("router", _route_from_router)
 
-    # Fan-out branches → soft gates → fan-in at fundamental_analyst
-    builder.add_edge("data_collector", "gate_data_collector")
-    builder.add_conditional_edges("gate_data_collector", route_gate_data_collector, {PASS: "fundamental_analyst"})
-
-    builder.add_edge("news_sentiment", "gate_news_sentiment")
-    builder.add_conditional_edges("gate_news_sentiment", route_gate_news_sentiment, {PASS: "fundamental_analyst"})
-
-    builder.add_edge("rag_retriever", "fundamental_analyst")  # no gate for local RAG
+    # Fan-out branches → fan-in at fundamental_analyst (3 symmetric edges = AND-join)
+    # Soft gate validation runs inside node_data_collector / node_news_sentiment.
+    builder.add_edge("data_collector",  "fundamental_analyst")
+    builder.add_edge("news_sentiment",  "fundamental_analyst")
+    builder.add_edge("rag_retriever",   "fundamental_analyst")
 
     # Hard gate after fundamental_analyst — fail-fast if no valid candidates
     builder.add_edge("fundamental_analyst", "gate_fundamental_analyst")

@@ -22,8 +22,7 @@ except Exception as e:
 # 2 — key nodes present in graph (agents + validation gates)
 for expected in (
     "rag_retriever", "llm_judge",
-    "gate_data_collector", "gate_news_sentiment", "gate_fundamental_analyst",
-    "gate_risk_assessor", "gate_report_writer",
+    "gate_fundamental_analyst", "gate_risk_assessor", "gate_report_writer",
 ):
     if expected not in nodes:
         errors.append(f"FAIL {expected} missing from graph")
