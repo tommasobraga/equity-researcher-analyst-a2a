@@ -15,13 +15,14 @@ flowchart TD
     START(["Orchestrator API :8000"]):::infra
     START --> MODE{mode}:::term
 
-    MODE -->|"analyze / full"| DC & NS
+    MODE -->|"analyze / full"| DC & NS & RAG
     MODE -->|portfolio| PL
 
     DC["DataCollector :8001<br/>Haiku 4.5 · ReAct"]:::haiku
     NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct"]:::haiku
+    RAG["RAGRetriever<br/>TF-IDF · locale"]:::infra
 
-    DC & NS --> FA
+    DC & NS & RAG --> FA
 
     FA["FundamentalAnalyst :8003<br/>Sonnet 4.6 · ReAct"]:::sonnet
 
@@ -92,6 +93,7 @@ graph TB
         TOOLS["tools/ — yfinance + rss_feed"]:::shared
         PORT_DB["portfolio_db.py"]:::shared
         MEM["agent_memory.py"]:::shared
+        RAG_RET["rag_retriever.py — retrieve_context()"]:::shared
     end
 
     subgraph STORAGE ["Storage"]
@@ -99,6 +101,7 @@ graph TB
         A_FILE[("audit_*.jsonl")]:::storage
         M_FILE[("memory/*.db")]:::storage
         D_FILE[("demo/response.json")]:::storage
+        R_FILE[("data/rag/documents/")]:::storage
     end
 
     GRAPH -->|"A2A tasks/send"| DC & NS
@@ -125,6 +128,8 @@ graph TB
     PORT_DB --> P_FILE
     MEM --> M_FILE
     DEMO --> D_FILE
+    GRAPH --> RAG_RET
+    RAG_RET --> R_FILE
 ```
 
 ---
@@ -138,5 +143,7 @@ graph TB
 | LLM Provider | `local` (test) / `bedrock` (prod) | Valutare Vertex per EU data residency |
 | Storage | SQLite (`portfolio.db`) | Fase 5/6: upgrade a PostgreSQL |
 | Agent Memory | SQLite per-agent (Fase A+B) | Fase futura: vector store per RAG |
+| RAG Retriever | TF-IDF keyword (operativo) | Fase 5+: embedding-based con Bedrock Titan su pgvector/ChromaDB |
+| RAG Documents | 11 documenti sintetici in `data/rag/documents/` | Sostituire con documentazione interna reale |
 | Auth | HMAC inter-agente opzionale | Fase 5: mutual TLS o API gateway |
 | Orchestrator | LangGraph deterministico | LLM-ready: sostituire body nodi con `react_loop()` |

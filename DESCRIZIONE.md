@@ -2,11 +2,11 @@
 
 ## The Solution
 
-**Equity Researcher A2A** is an AI-native equity research platform that automates the entire analytical cycle — from data collection to final report generation — by combining five specialized intelligent agents that collaborate through the **A2A (Agent-to-Agent)** protocol.
+**Equity Researcher A2A** is an AI-native equity research platform that automates the entire analytical cycle — from data collection to final report generation — by combining six specialized intelligent agents that collaborate through the **A2A (Agent-to-Agent)** protocol, enriched by a RAG retriever that injects internal knowledge base context into the analysis.
 
-The system takes a list of stock tickers as input (e.g. `AAPL MSFT UCG.MI`) and, fully automatically, collects market fundamentals, processes real-time financial news, identifies the candidates with the highest potential, assesses risk across five quantitative dimensions, and generates a professional report with executive summary, base/bull/bear scenarios, and comparative scoring.
+The system takes a list of stock tickers as input (e.g. `AAPL MSFT UCG.MI`) and, fully automatically, collects market fundamentals, processes real-time financial news, retrieves relevant internal documents, identifies the candidates with the highest potential, assesses risk across five quantitative dimensions, and generates a professional report with executive summary, base/bull/bear scenarios, and comparative scoring.
 
-The architecture decomposes a traditional monolithic CrewAI pipeline into **5 independent FastAPI microservices** communicating via JSON-RPC 2.0 over HTTP. All agents use the **Anthropic SDK natively** with a custom ReAct loop (`shared/react.py`), without intermediate frameworks.
+The architecture decomposes a traditional monolithic CrewAI pipeline into **6 independent FastAPI microservices** communicating via JSON-RPC 2.0 over HTTP, plus a local RAG retriever module. All agents use the **Anthropic SDK natively** with a custom ReAct loop (`shared/react.py`), without intermediate frameworks.
 
 ---
 
@@ -75,22 +75,39 @@ No `.env` file — env vars are injected by the platform (ECS, Lambda) or set in
 ## General Architecture
 
 ```
-┌─────────────────────────────────────────────────────┐
-│                    ORCHESTRATOR                      │
-│              LangGraph StateGraph v2                 │
-│                                                      │
-│  PipelineState (TypedDict) — accumulated data        │
-│  ┌────────┐ ┌────────┐ ┌────────┐ ┌──────┐ ┌──────┐│
-│  │  [1]   │→│  [2]   │→│  [3]   │→│ [4]  │→│ [5]  ││
-│  │Data    │ │News    │ │Fundmt. │ │Risk  │ │Report││
-│  │Collect.│ │Sentim. │ │Analyst │ │Asses.│ │Writer││
-│  │:8001   │ │:8002   │ │:8003   │ │:8004 │ │:8005 ││
-│  └────────┘ └────────┘ └────────┘ └──────┘ └──────┘│
-└─────────────────────────────────────────────────────┘
-         ↑  Communication via JSON-RPC 2.0 over HTTP  ↑
+┌──────────────────────────────────────────────────────────────────┐
+│                         ORCHESTRATOR                              │
+│                   LangGraph StateGraph v3                         │
+│                                                                   │
+│  PipelineState (TypedDict) — accumulated data                     │
+│                                                                   │
+│  ┌──────────┐ ┌──────────┐ ┌──────────┐                          │
+│  │  [1]     │ │  [2]     │ │  [RAG]   │  ← parallel fan-out      │
+│  │Data      │ │News      │ │RAG       │                           │
+│  │Collector │ │Sentiment │ │Retriever │                           │
+│  │:8001     │ │:8002     │ │[local]   │                           │
+│  └────┬─────┘ └────┬─────┘ └────┬─────┘                          │
+│       └────────────┴────────────┘                                 │
+│                        ↓ fan-in                                   │
+│               ┌────────────────┐                                  │
+│               │  [3] Fundmt.   │                                  │
+│               │  Analyst :8003 │                                  │
+│               └───────┬────────┘                                  │
+│                       ↓                                           │
+│               ┌───────────────┐   ┌────────────────┐             │
+│               │ [4] Risk      │ → │ [5] Report     │             │
+│               │ Assessor :8004│   │ Writer  :8009  │             │
+│               └───────────────┘   └───────┬────────┘             │
+│                                           ↓ (mode=full)          │
+│                              ┌────────────────────┐              │
+│                              │ [6] Portfolio Mgr  │              │
+│                              │ :8010              │              │
+│                              └────────────────────┘              │
+└──────────────────────────────────────────────────────────────────┘
+              ↑  Communication via JSON-RPC 2.0 over HTTP  ↑
 ```
 
-The pipeline is **sequential**: each node receives the state accumulated by previous steps and appends its own results. The orchestrator uses **LangGraph** (`StateGraph`) — adding parallel branches or retry loops only requires modifying `_build_graph()` in `orchestrator/main.py`, without touching node logic.
+The pipeline uses **parallel fan-out**: DataCollector, NewsSentiment, and RAGRetriever run concurrently and fan-in at FundamentalAnalyst. The orchestrator uses **LangGraph** (`StateGraph`) — adding or reconfiguring branches only requires modifying `_build_graph_builder()` in `orchestrator/main.py`, without touching node logic.
 
 ---
 
@@ -203,10 +220,10 @@ Produces the final report in two steps:
 
 | Version | Description |
 |---------|-------------|
-| v2 orchestrator | LangGraph is already active; adding parallel branches or retry loops only requires modifying `_build_graph()` |
-| Model phase 2 | Gemini Flash for NewsSentiment — add `GOOGLE_API_KEY` and change `model_id` only |
-| Model phase 3 | Local Ollama on Apple Silicon (`llama3.1:8b`, `mistral:7b`) via OpenAI-compatible endpoint |
-| Future agents | Portfolio Manager, Earnings Calendar, Macro Agent |
+| v3 orchestrator | LangGraph v3 active — parallel fan-out (DataCollector + NewsSentiment + RAGRetriever), circuit breaker, checkpointing, graceful degradation |
+| RAG v1 | TF-IDF keyword retrieval on `data/rag/documents/` (11 synthetic docs). Upgrade path: embedding-based with Bedrock Titan on pgvector/ChromaDB |
+| Fase 5 | Certified data provider (Refinitiv LSEG / Bloomberg B-PIPE), RSS commercial license verification, PostgreSQL upgrade |
+| Future agents | Earnings Calendar, Macro Agent |
 
 ---
 

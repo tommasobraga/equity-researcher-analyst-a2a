@@ -55,7 +55,8 @@ This is an **A2A (Agent-to-Agent)** multi-agent equity research system. The Crew
 mode=analyze:
   OrchestratorAPI(:8000)
     → router → data_collector(:8001) ─┐  (parallel fan-out)
-             → news_sentiment(:8002)  ─┴─► fundamental_analyst(:8003)
+             → news_sentiment(:8002)  ─┤
+             → rag_retriever [local]  ─┴─► fundamental_analyst(:8003)
                                            → risk_assessor(:8004)
                                            → report_writer(:8009) → END
 
@@ -66,7 +67,8 @@ mode=portfolio:
 mode=full:
   OrchestratorAPI(:8000)
     → router → data_collector(:8001) ─┐  (parallel fan-out)
-             → news_sentiment(:8002)  ─┴─► fundamental_analyst(:8003)
+             → news_sentiment(:8002)  ─┤
+             → rag_retriever [local]  ─┴─► fundamental_analyst(:8003)
                                            → risk_assessor(:8004)
                                            → report_writer(:8009)
                                            → portfolio_loader [SQLite]
@@ -110,6 +112,7 @@ Every agent follows the same pattern:
 - `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. **Stub only** — yfinance rimosso (scraping non ufficiale, no licenza commerciale, incompatibile MiFID II). Le funzioni lanciano `NotImplementedError`. Integrazione provider certificato (Refinitiv LSEG / Bloomberg B-PIPE / Alpha Vantage enterprise) pianificata in **Fase 5**. In `DEMO_MODE=true` queste funzioni non vengono mai chiamate.
 - `shared/tools/rss_feed.py` — `fetch_rss_news()` reads RSS feeds (Reuters, Yahoo Finance, MarketWatch) with retry logic. Licenza commerciale da verificare in Fase 5.
 - `shared/portfolio_db.py` — `init_db()` / `load_portfolio_state()` / `save_portfolio_state()`: persistenza SQLite per il portafoglio fittizio (`output/portfolio.db`). Seed iniziale 100.000 USD. Upgrade naturale a PostgreSQL in Fase 5/6.
+- `data/rag/documents/` — 11 documenti sintetici (investment policy, note settoriali, metodologia scoring, contesto macro, watchlist). Sostituire con documentazione interna reale quando disponibile.
 
 ### ReAct loop nativo
 
@@ -124,10 +127,11 @@ Tutti e 4 gli agenti con tool use (DataCollector, NewsSentiment, FundamentalAnal
 - `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: autenticazione inter-agente
 - `shared/secrets.py` — `get_secret()`: factory secret provider-agnostic (local/azure/aws)
 - `shared/sanitize.py` — `sanitize_rss_item()`: sanitizzazione input RSS anti prompt-injection
+- `shared/rag_retriever.py` — `retrieve_context(query_terms, top_k)`: retrieval TF-IDF sui documenti in `data/rag/documents/`. Nodo parallelo nell'orchestratore (fan-out insieme a DataCollector e NewsSentiment). Output iniettato nel prompt di FundamentalAnalyst come `rag_context`. Interfaccia pubblica stabile: upgrade a embedding-based (Bedrock Titan) senza modifiche all'orchestratore.
 
 ### Orchestrator internals
 
-- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: entry point LangGraph. Compila il grafo con `_build_graph_builder()` a ogni chiamata (per consentire checkpointing corretto). `PipelineState` TypedDict con campi: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`.
+- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: entry point LangGraph. Compila il grafo con `_build_graph_builder()` a ogni chiamata (per consentire checkpointing corretto). `PipelineState` TypedDict con campi: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `ticker_history`, `previous_runs`.
 - `orchestrator/api.py` — FastAPI su porta 8000. `POST /research`, `GET /portfolio`, `GET /health`. Instrada le request a `run_pipeline()`.
 
 ### Domain constraints (hardcoded in agent prompts)
