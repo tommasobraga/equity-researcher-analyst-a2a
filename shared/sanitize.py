@@ -51,15 +51,31 @@ def _redact_injections(text: str) -> str:
 def sanitize_rss_item(title: str, summary: str) -> tuple[str, str]:
     """Sanitize title and summary from an RSS feed entry.
 
-    Applies in order: HTML strip → control char removal → injection redaction → truncation.
+    Applies in order:
+      1. Cross-field split injection check on raw combined text
+      2. Per-field: injection redaction → HTML strip → control char removal → truncation
 
     Returns:
         (clean_title, clean_summary) tuple, both safe to include in LLM prompts.
     """
+    title_raw = title or ""
+    summary_raw = summary or ""
+
+    # Split injection: neither field alone triggers, but the concatenation does.
+    # Redact both fields to avoid passing any fragment of the injection downstream.
+    combined = f"{title_raw} {summary_raw}"
+    if (
+        _INJECTION_PATTERNS_RE.search(combined)
+        and not _INJECTION_PATTERNS_RE.search(title_raw)
+        and not _INJECTION_PATTERNS_RE.search(summary_raw)
+    ):
+        title_raw = "[REDACTED]"
+        summary_raw = "[REDACTED]"
+
     def clean(text: str, max_len: int) -> str:
-        text = _redact_injections(text or "")  # before HTML strip — catches <system> tags
+        text = _redact_injections(text)  # before HTML strip — catches <system> tags
         text = _strip_html(text)
         text = _remove_control_chars(text)
         return text[:max_len].strip()
 
-    return clean(title, _MAX_TITLE_LEN), clean(summary, _MAX_SUMMARY_LEN)
+    return clean(title_raw, _MAX_TITLE_LEN), clean(summary_raw, _MAX_SUMMARY_LEN)
