@@ -108,12 +108,25 @@ run_pipeline(prompt="Analizza opportunità AI europee con orizzonte 3 mesi")
     → iniettato in: NewsSentiment (topic RSS), FundamentalAnalyst (istruzione), ReportWriter (user_prompt)
 ```
 
+### Extended thinking
+
+In LLM mode il decomposer usa **extended thinking** (`claude-sonnet-4-6`, `budget_tokens=8000`). La risposta contiene due blocchi: un `ThinkingBlock` con la catena di ragionamento e un `TextBlock` con il JSON strutturato. Il `ThinkingBlock` viene salvato in `TaskDecomposition.rationale` e passato agli agenti downstream.
+
+In DEMO_MODE `_synthetic_rationale()` costruisce un rationale deterministico basato sui parametri estratti — esercita il path di iniezione senza chiamate LLM.
+
+**Priorità di iniezione negli agenti:**
+```
+rationale presente  →  "RAGIONAMENTO DEL PIANIFICATORE: ..."  (CoT completo)
+rationale assente   →  "FOCUS DELLA RICERCA: ..."             (sintesi)
+entrambi assenti    →  comportamento default dell'agente
+```
+
 **Modalità di utilizzo:**
 
 | Input | Comportamento |
 |---|---|
-| Solo `--prompt` | Decomposer estrae tickers, mode, focus dal testo |
-| `--tickers` + `--prompt` | Tickers espliciti + quelli estratti (merge, espliciti precedono); focus dal prompt |
+| Solo `--prompt` | Decomposer estrae tickers, mode, focus dal testo; produce rationale CoT |
+| `--tickers` + `--prompt` | Tickers espliciti + quelli estratti (merge, espliciti precedono); focus e rationale dal prompt |
 | Solo `--tickers` | Decomposer è no-op, pipeline invariata |
 
 **API:**
@@ -249,4 +262,4 @@ graph TB
 | Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
 | Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Extend with adversarial testing and red-teaming suite |
-| Task Decomposition | NL prompt → `TaskDecomposition` via Haiku; no-op if prompt absent | Extend intents; wire `horizon_weeks` into RiskAssessor prompt |
+| Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; no-op if prompt absent | Wire `horizon_weeks` in RiskAssessor; extend intent set |
