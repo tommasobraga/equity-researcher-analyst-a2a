@@ -116,15 +116,12 @@ class TestAdversarialReportContent:
 
     # --- directive bypass attempts ---
 
-    def test_directive_via_cyrillic_homoglyph_bypasses_validator(self):
-        """Gap: 'vеndete' with Cyrillic е (U+0435) bypasses _DIRECTIVE_RE."""
-        # NFKC normalisation in sanitize converts some homoglyphs but _DIRECTIVE_RE
-        # runs on the already-sanitised text without further normalisation.
-        c = _candidato(tesi="vеndete subito — ottima occasione")  # е = Cyrillic
+    def test_directive_via_cyrillic_homoglyph_caught(self):
+        """'vеndete' with Cyrillic е (U+0435) is normalized and caught by _DIRECTIVE_RE."""
+        c = _candidato(tesi="vеndete subito — ottima occasione")  # е = Cyrillic U+0435
         v = _errors(_report(c))
-        # Gap: the Cyrillic homoglyph is not caught
         directive_errors = [e for e in v if e.rule == "no_buy_sell_directives"]
-        assert len(directive_errors) == 0  # documents the gap
+        assert len(directive_errors) == 1
 
     def test_directive_in_risk_field_caught(self):
         """Directive hidden in a risk field — validator scans all free-text fields."""
@@ -147,12 +144,12 @@ class TestAdversarialReportContent:
 
     # --- crypto bypass attempts ---
 
-    def test_crypto_via_euphemism_not_caught(self):
-        """Gap: 'digital asset' and 'web3 token' are not in _CRYPTO_KEYWORDS."""
+    def test_crypto_via_euphemism_caught(self):
+        """'digital asset' in company name is caught by _CRYPTO_PHRASES_RE."""
         c = _candidato(ticker="DAS", azienda="Digital Asset Solutions Inc.")
         v = _errors(_report(c))
         crypto_errors = [e for e in v if e.rule == "no_crypto"]
-        assert len(crypto_errors) == 0  # gap: euphemism slips through
+        assert len(crypto_errors) == 1
 
     def test_crypto_keyword_in_ticker_caught(self):
         c = _candidato(ticker="BTC", azienda="Bitcoin Corp")
@@ -176,12 +173,12 @@ class TestAdversarialReportContent:
         v = _errors(_report(c))
         assert any(e.rule == "no_uk_stocks" for e in v)
 
-    def test_lse_variant_dot_lon_not_caught(self):
-        """Gap: '.LON' suffix is not in the LSE pattern (only '.L' is)."""
+    def test_lse_variant_dot_lon_caught(self):
+        """'.LON' suffix is caught by extended _LSE_RE."""
         c = _candidato(ticker="SHEL.LON")
         v = _errors(_report(c))
         uk_errors = [e for e in v if e.rule == "no_uk_stocks"]
-        assert len(uk_errors) == 0  # gap documented
+        assert len(uk_errors) == 1
 
     # --- scoring manipulation ---
 

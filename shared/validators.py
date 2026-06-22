@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 from dataclasses import dataclass
 
 from shared.models import Report
@@ -30,6 +31,12 @@ _CRYPTO_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Multi-word crypto euphemisms not catchable as single tokens.
+_CRYPTO_PHRASES_RE = re.compile(
+    r"digital\s+assets?|on[\-\s]chain",
+    re.IGNORECASE,
+)
+
 _DIRECTIVE_RE = re.compile(
     r"\b(comprat[eio]|vendete?|acquistat[eio]|shortate?|"
     r"buy\s+now|sell\s+now|acquistare\s+subito|comprare\s+subito|"
@@ -37,6 +44,19 @@ _DIRECTIVE_RE = re.compile(
     r"(?:lo|la|li|le|ne|ci|vi|gli|mi|ti|si)?\b",
     re.IGNORECASE,
 )
+
+# Cyrillic characters visually identical to Latin — used in homoglyph attacks.
+_CYRILLIC_LOOKALIKES = str.maketrans({
+    'а': 'a',  # а → a
+    'е': 'e',  # е → e
+    'о': 'o',  # о → o
+    'р': 'p',  # р → p
+    'с': 'c',  # с → c
+    'х': 'x',  # х → x
+    'і': 'i',  # і → i
+    'ѕ': 's',  # ѕ → s
+    'у': 'u',  # у → u
+})
 
 _NEWS_ID_RE = re.compile(r"^N\d+$")
 
@@ -46,6 +66,17 @@ _SCORING_DIMS = [
 ]
 
 _VALID_GIUDIZI = {"strong buy", "buy", "hold", "sell", "strong sell", "n/a"}
+
+
+def _normalize_text(text: str) -> str:
+    """NFKC + Cyrillic lookalike substitution before directive regex matching."""
+    return unicodedata.normalize("NFKC", text).translate(_CYRILLIC_LOOKALIKES)
+
+
+def _crypto_hits(text: str) -> set[str]:
+    hits = {m.group().lower() for m in _CRYPTO_RE.finditer(text)}
+    hits |= {m.group().lower() for m in _CRYPTO_PHRASES_RE.finditer(text)}
+    return hits
 
 
 def _full_text(c) -> str:
@@ -63,7 +94,7 @@ def _full_text_tema(t) -> str:
     return " ".join(p for p in parts if p)
 
 
-_LSE_RE = re.compile(r"\.L$", re.IGNORECASE)
+_LSE_RE = re.compile(r"\.(L|LON|LN|XL)$", re.IGNORECASE)
 _TICKER_FORMAT_RE = re.compile(r"^[A-Z0-9.\-]+$")
 _MAX_TICKER_LEN = 12  # longest realistic ticker (e.g. BRK-B=5, ASML.AS=7)
 
@@ -88,7 +119,7 @@ def validate_tickers(tickers: list[str]) -> list[str]:
             continue
         if _LSE_RE.search(t):
             errors.append(f"{ticker}: LSE (UK) equity — excluded from universe")
-        crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(t)}
+        crypto_hits = _crypto_hits(t)
         if crypto_hits:
             errors.append(f"{ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))}) — excluded from universe")
     return errors
@@ -113,16 +144,16 @@ def validate(report: Report | None) -> list[Violation]:
     for c in report.candidati:
         text = _full_text(c)
 
-        if c.ticker.upper().endswith(".L"):
+        if _LSE_RE.search(c.ticker):
             violations.append(Violation(rule="no_uk_stocks", severity="error", ticker=c.ticker,
                 message=f"{c.ticker}: LSE (UK) stock — excluded from universe."))
 
-        crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(f"{c.ticker} {c.azienda}")}
+        crypto_hits = _crypto_hits(f"{c.ticker} {c.azienda}")
         if crypto_hits:
             violations.append(Violation(rule="no_crypto", severity="error", ticker=c.ticker,
                 message=f"{c.ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))})."))
 
-        match = _DIRECTIVE_RE.search(text)
+        match = _DIRECTIVE_RE.search(_normalize_text(text))
         if match:
             violations.append(Violation(rule="no_buy_sell_directives", severity="error", ticker=c.ticker,
                 message=f"{c.ticker}: explicit buy/sell directive found — '{match.group()}'."))
@@ -147,11 +178,11 @@ def validate(report: Report | None) -> list[Violation]:
 
     for t in report.temi:
         text = _full_text_tema(t)
-        crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(text)}
+        crypto_hits = _crypto_hits(text)
         if crypto_hits:
             violations.append(Violation(rule="no_crypto", severity="error", ticker=None,
                 message=f"Theme '{t.tema_id}': crypto keyword detected ({', '.join(sorted(crypto_hits))})."))
-        match = _DIRECTIVE_RE.search(text)
+        match = _DIRECTIVE_RE.search(_normalize_text(text))
         if match:
             violations.append(Violation(rule="no_buy_sell_directives", severity="error", ticker=None,
                 message=f"Theme '{t.tema_id}': explicit buy/sell directive found — '{match.group()}'."))
