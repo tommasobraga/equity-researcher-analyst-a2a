@@ -17,6 +17,13 @@ _CONTROL_CHARS_RE = re.compile(
     r"​-‏‪-‮﻿]",  # zero-width, bidi overrides, BOM
 )
 
+# Cyrillic characters visually identical to Latin — used in homoglyph attacks on keywords
+# like "system:". Note: у → y (not u) because Cyrillic у looks like Latin y.
+_CYRILLIC_LOOKALIKES = str.maketrans({
+    'а': 'a', 'е': 'e', 'о': 'o', 'р': 'p',
+    'с': 'c', 'х': 'x', 'і': 'i', 'ѕ': 's', 'у': 'y',
+})
+
 # Base64-looking chunks have no legitimate use in financial news titles or summaries.
 # Lookaheads require mixed case (real base64 always has both) to avoid false positives
 # on repetitive strings like "AAAA..." used in truncation tests or CUSIPs/ISINs.
@@ -66,8 +73,13 @@ def sanitize_rss_item(title: str, summary: str) -> tuple[str, str]:
     Returns:
         (clean_title, clean_summary) tuple, both safe to include in LLM prompts.
     """
-    title_raw = title or ""
-    summary_raw = summary or ""
+    # Normalize before any pattern matching: NFKC + Cyrillic lookalike substitution
+    # so that "ѕуѕtеm:" is seen as "system:" by _INJECTION_PATTERNS_RE.
+    def _normalize(text: str) -> str:
+        return unicodedata.normalize("NFKC", text or "").translate(_CYRILLIC_LOOKALIKES)
+
+    title_raw = _normalize(title)
+    summary_raw = _normalize(summary)
 
     # Split injection: neither field alone triggers, but the concatenation does.
     # Redact both fields to avoid passing any fragment of the injection downstream.
