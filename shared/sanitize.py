@@ -17,6 +17,13 @@ _CONTROL_CHARS_RE = re.compile(
     r"​-‏‪-‮﻿]",  # zero-width, bidi overrides, BOM
 )
 
+# Base64-looking chunks have no legitimate use in financial news titles or summaries.
+# Lookaheads require mixed case (real base64 always has both) to avoid false positives
+# on repetitive strings like "AAAA..." used in truncation tests or CUSIPs/ISINs.
+_BASE64_RE = re.compile(
+    r"(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])[A-Za-z0-9+/]{20,}={0,2}"
+)
+
 # Common prompt injection patterns found in malicious RSS feeds.
 # Syntactic patterns catch known tokens; semantic patterns catch common persona-hijack phrases.
 # A denylist is inherently incomplete — structural separation in the prompt (XML tags) is the
@@ -45,6 +52,7 @@ def _remove_control_chars(text: str) -> str:
 
 
 def _redact_injections(text: str) -> str:
+    text = _BASE64_RE.sub("[REDACTED]", text)
     return _INJECTION_PATTERNS_RE.sub("[REDACTED]", text)
 
 
