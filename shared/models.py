@@ -140,3 +140,4 @@ class TaskDecomposition(BaseModel):
     sectors: list[str] = Field(default_factory=list)
     horizon_weeks: int | None = None
     constraints: list[str] = Field(default_factory=list)
+    rationale: str = ""                # extended thinking trace — empty when thinking disabled

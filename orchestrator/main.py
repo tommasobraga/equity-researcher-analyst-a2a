@@ -336,14 +336,20 @@ def _route_after_judge(state: PipelineState) -> str:
 # Graph nodes — analysis branch                                        #
 # ------------------------------------------------------------------ #
 
-_DECOMPOSER_SYSTEM = """You are a financial research task decomposer.
-Extract structured parameters from a natural language research request.
+_DECOMPOSER_SYSTEM = """You are a financial research task decomposer with extended reasoning.
+
+Think step by step before producing output:
+1. What is the user's core research intent?
+2. Which specific stocks or sectors are implied?
+3. What time horizon and risk profile does the request suggest?
+4. What constraints should downstream agents respect?
+5. What is the single most important analytical angle for this request?
 
 Universe: US and EU equities only (no LSE .L tickers, no crypto/DeFi/Web3).
 Allowed sectors: Technology, AI, Software, Semiconductors, Banking, Financial Services.
 Excluded sectors: energy, utilities, real estate, REITs, consumer staples, industrials, airlines.
 
-Respond ONLY with a valid JSON object — no markdown, no explanation:
+After reasoning, respond with a valid JSON object — no markdown, no extra text:
 {
   "intent": "ticker_analysis|sector_screen|comparative_analysis|theme_exploration|portfolio_review",
   "tickers": [],
@@ -354,13 +360,28 @@ Respond ONLY with a valid JSON object — no markdown, no explanation:
   "constraints": []
 }"""
 
-_DECOMPOSER_INTENT_HINTS = {
-    "ticker_analysis":      "explicit tickers mentioned",
-    "sector_screen":        "sector or theme mentioned, no specific tickers",
-    "comparative_analysis": "comparison between 2+ entities",
-    "theme_exploration":    "macro/thematic research (e.g. AI, dazi, tassi)",
-    "portfolio_review":     "portfolio review or rebalancing",
-}
+# Model for extended thinking — must be Sonnet or above (Haiku does not support thinking)
+_MODEL_DECOMPOSER = "claude-sonnet-4-6"
+_THINKING_BUDGET_TOKENS = 8_000
+_DECOMPOSER_MAX_TOKENS = 10_000  # must be > budget_tokens
+
+
+def _synthetic_rationale(user_prompt: str, decomp: "TaskDecomposition") -> str:
+    """Build a deterministic rationale for DEMO_MODE — exercises the injection path."""
+    horizon = f"{decomp.horizon_weeks} settimane" if decomp.horizon_weeks else "non specificato"
+    sectors = ", ".join(decomp.sectors) if decomp.sectors else "da determinare via news"
+    constraints = "; ".join(decomp.constraints) if decomp.constraints else "nessuno aggiuntivo"
+    tickers = ", ".join(decomp.tickers) if decomp.tickers else "nessuno esplicito — ricerca news-driven"
+    return (
+        f"[DEMO rationale — extended thinking non attivo]\n"
+        f"Richiesta analizzata: '{user_prompt}'\n"
+        f"Intent classificato come '{decomp.intent}'.\n"
+        f"Ticker identificati: {tickers}.\n"
+        f"Settori rilevanti: {sectors}.\n"
+        f"Orizzonte temporale: {horizon}.\n"
+        f"Vincoli aggiuntivi: {constraints}.\n"
+        f"Gli agenti downstream devono concentrarsi su: {decomp.research_focus}."
+    )
 
 
 async def node_task_decomposer(state: PipelineState) -> dict:
@@ -380,22 +401,33 @@ async def node_task_decomposer(state: PipelineState) -> dict:
             horizon_weeks=None,
             constraints=[],
         )
+        decomp.rationale = _synthetic_rationale(user_prompt, decomp)
         print(f"      → intent: {decomp.intent}  focus: '{decomp.research_focus[:50]}' (demo)")
         return {"task_decomposition": decomp.model_dump()}
 
     from shared.llm_client import get_llm_client
     client = get_llm_client()
+    rationale = ""
     try:
+        # Extended thinking: Sonnet reasons step-by-step before producing JSON.
+        # The thinking block is extracted as rationale and passed to downstream agents.
         response = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=512,
+            model=_MODEL_DECOMPOSER,
+            max_tokens=_DECOMPOSER_MAX_TOKENS,
+            thinking={"type": "enabled", "budget_tokens": _THINKING_BUDGET_TOKENS},
             system=_DECOMPOSER_SYSTEM,
             messages=[{"role": "user", "content": user_prompt}],
         )
-        raw = response.content[0].text.strip()
+        raw = ""
+        for block in response.content:
+            if block.type == "thinking":
+                rationale = block.thinking
+            elif block.type == "text":
+                raw = block.text
         m = re.search(r"\{.*\}", raw, re.DOTALL)
         data = json.loads(m.group()) if m else {}
         decomp = TaskDecomposition.model_validate(data)
+        decomp.rationale = rationale
     except Exception as e:
         log.warning("task_decomposer.fallback", error=str(e))
         decomp = TaskDecomposition(
@@ -405,7 +437,8 @@ async def node_task_decomposer(state: PipelineState) -> dict:
             research_focus=user_prompt,
         )
 
-    print(f"      → intent: {decomp.intent}  tickers: {decomp.tickers or '(from pipeline)'}")
+    thinking_active = bool(rationale)
+    print(f"      → intent: {decomp.intent}  tickers: {decomp.tickers or '(from pipeline)'}  thinking: {thinking_active}")
 
     # Merge tickers: explicit (caller) take precedence; decomposed fill gaps
     merged = list(dict.fromkeys(state["tickers"] + decomp.tickers))
@@ -558,8 +591,11 @@ async def node_fundamental_analyst(state: PipelineState) -> dict:
     decomp = state.get("task_decomposition", {})
     research_focus = decomp.get("research_focus", "")
     constraints = "; ".join(decomp.get("constraints", []))
+    rationale = decomp.get("rationale", "")
     fa_instruction = "Analyse the provided news, themes and fundamentals. Return equity candidates."
-    if research_focus:
+    if rationale:
+        fa_instruction = f"RAGIONAMENTO DEL PIANIFICATORE:\n{rationale}\n\n---\n\n{fa_instruction}"
+    elif research_focus:
         fa_instruction = f"Research focus: {research_focus}\n\n{fa_instruction}"
     if constraints:
         fa_instruction += f"\n\nAdditional constraints: {constraints}"
@@ -634,6 +670,7 @@ async def node_report_writer(state: PipelineState) -> dict:
             "previous_runs_context": format_run_summaries(state.get("previous_runs", [])),
             "gate_feedback": gate_feedback_text,
             "research_focus": decomp.get("research_focus", ""),
+            "rationale": decomp.get("rationale", ""),
         },
         timeout=300.0,
         correlation_id=state["run_id"],

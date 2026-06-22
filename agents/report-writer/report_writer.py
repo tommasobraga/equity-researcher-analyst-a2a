@@ -220,9 +220,11 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     prev_runs_ctx = input_data.get("previous_runs_context", "")
     gate_feedback = input_data.get("gate_feedback", "")
     research_focus = input_data.get("research_focus", "")
+    rationale = input_data.get("rationale", "")
 
     user_prompt = (
-        (f"FOCUS DELLA RICERCA: {research_focus}\n\n---\n\n" if research_focus else "")
+        (f"RAGIONAMENTO DEL PIANIFICATORE:\n{rationale}\n\n---\n\n" if rationale else
+         f"FOCUS DELLA RICERCA: {research_focus}\n\n---\n\n" if research_focus else "")
         + (f"GATE VALIDATION FEEDBACK — fix these errors in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
         + (f"CONTESTO RUN PRECEDENTI:\n{prev_runs_ctx}\n\n---\n\n" if prev_runs_ctx else "")
         + f"Oggi è {today}.\n\n"
