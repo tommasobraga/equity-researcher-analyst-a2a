@@ -63,6 +63,29 @@ def _full_text_tema(t) -> str:
     return " ".join(p for p in parts if p)
 
 
+_LSE_RE = re.compile(r"\.L$", re.IGNORECASE)
+_TICKER_FORMAT_RE = re.compile(r"^[A-Z0-9.\-]+$")
+
+
+def validate_tickers(tickers: list[str]) -> list[str]:
+    """Check tickers against universe constraints before the pipeline starts.
+
+    Returns a list of error strings; empty list = all valid.
+    Empty tickers input is allowed (news-driven opportunistic mode).
+    """
+    errors: list[str] = []
+    for ticker in tickers:
+        t = ticker.upper().strip()
+        if _LSE_RE.search(t):
+            errors.append(f"{ticker}: LSE (UK) equity — excluded from universe")
+        crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(t)}
+        if crypto_hits:
+            errors.append(f"{ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))}) — excluded from universe")
+        if not _TICKER_FORMAT_RE.match(t):
+            errors.append(f"{ticker}: invalid ticker format (allowed: letters, digits, dot, hyphen)")
+    return errors
+
+
 def validate(report: Report | None) -> list[Violation]:
     violations: list[Violation] = []
 

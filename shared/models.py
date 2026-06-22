@@ -116,3 +116,27 @@ class Correction(BaseModel):
     field: str
     value: int | float | str
     motivo: str = ""
+
+
+class TaskDecomposition(BaseModel):
+    """Structured output of the task decomposer node.
+
+    Extracted from a natural language prompt; used to parameterise the pipeline.
+    All fields have safe defaults so the model is always constructable even when
+    the LLM returns a partial JSON.
+    """
+    model_config = {"frozen": False}
+
+    intent: Literal[
+        "ticker_analysis",      # "analizza AAPL e MSFT"
+        "sector_screen",        # "trova opportunità AI in EU"
+        "comparative_analysis", # "confronta momentum di X vs Y"
+        "theme_exploration",    # "impatto dei dazi sul tech"
+        "portfolio_review",     # "rivedi il portfolio"
+    ] = "ticker_analysis"
+    tickers: list[str] = Field(default_factory=list)
+    mode: Literal["analyze", "portfolio", "full"] = "analyze"
+    research_focus: str = ""           # injected into FA and ReportWriter prompts
+    sectors: list[str] = Field(default_factory=list)
+    horizon_weeks: int | None = None
+    constraints: list[str] = Field(default_factory=list)

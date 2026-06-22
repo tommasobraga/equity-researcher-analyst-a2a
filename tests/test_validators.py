@@ -10,7 +10,7 @@ from shared.models import (
     Scoring,
     Tema,
 )
-from shared.validators import validate
+from shared.validators import validate, validate_tickers
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
@@ -251,6 +251,46 @@ class TestConsensusGiudizio:
 
 
 # ── candidate_count ────────────────────────────────────────────────────────
+
+class TestValidateTickers:
+    def test_valid_us_tickers_pass(self):
+        assert validate_tickers(["AAPL", "MSFT", "NVDA"]) == []
+
+    def test_valid_eu_tickers_pass(self):
+        assert validate_tickers(["UCG.MI", "ASML.AS", "SAP.DE"]) == []
+
+    def test_empty_list_is_valid(self):
+        assert validate_tickers([]) == []
+
+    def test_lse_ticker_is_rejected(self):
+        errors = validate_tickers(["SHEL.L"])
+        assert len(errors) == 1
+        assert "LSE" in errors[0]
+
+    def test_lse_lowercase_is_rejected(self):
+        errors = validate_tickers(["shel.l"])
+        assert len(errors) == 1
+        assert "LSE" in errors[0]
+
+    def test_crypto_ticker_is_rejected(self):
+        errors = validate_tickers(["BTC"])
+        assert len(errors) == 1
+        assert "crypto" in errors[0].lower()
+
+    def test_mixed_valid_and_invalid(self):
+        errors = validate_tickers(["AAPL", "SHEL.L", "MSFT"])
+        assert len(errors) == 1
+        assert "SHEL.L" in errors[0]
+
+    def test_multiple_invalid_tickers(self):
+        errors = validate_tickers(["SHEL.L", "BTC"])
+        assert len(errors) == 2
+
+    def test_invalid_format_is_rejected(self):
+        errors = validate_tickers(["AAPL!@#"])
+        assert len(errors) == 1
+        assert "format" in errors[0].lower()
+
 
 class TestCandidateCount:
     def test_five_candidates_is_clean(self):

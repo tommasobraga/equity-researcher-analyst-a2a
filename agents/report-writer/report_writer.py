@@ -19,11 +19,14 @@ from fastapi.responses import FileResponse, JSONResponse
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+from pydantic import ValidationError
+
 from shared.a2a_models import A2ATask, A2ATaskResult, JsonRpcRequest, JsonRpcResponse
 from shared.audit import make_audit_event, write_audit_event
 from shared.demo import is_demo_mode, load_demo_response
 from shared.hmac_auth import HMACMiddleware
 from shared.llm_client import get_llm_client
+from shared.models import Report
 
 log = structlog.get_logger()
 
@@ -216,9 +219,11 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     themes = input_data.get("themes", [])
     prev_runs_ctx = input_data.get("previous_runs_context", "")
     gate_feedback = input_data.get("gate_feedback", "")
+    research_focus = input_data.get("research_focus", "")
 
     user_prompt = (
-        (f"GATE VALIDATION FEEDBACK — fix these errors in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
+        (f"FOCUS DELLA RICERCA: {research_focus}\n\n---\n\n" if research_focus else "")
+        + (f"GATE VALIDATION FEEDBACK — fix these errors in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
         + (f"CONTESTO RUN PRECEDENTI:\n{prev_runs_ctx}\n\n---\n\n" if prev_runs_ctx else "")
         + f"Oggi è {today}.\n\n"
         f"NOTIZIE:\n{json.dumps(news, ensure_ascii=False)}\n\n"
@@ -251,8 +256,17 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
 
         try:
             report_dict = json.loads(json_clean)
-        except json.JSONDecodeError:
-            report_dict = {"raw": json_clean}
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"ReportWriter JSON parse failed: {exc}") from exc
+
+        try:
+            report_obj = Report.model_validate(report_dict)
+            report_dict = report_obj.model_dump()
+        except ValidationError as exc:
+            raise ValueError(
+                f"ReportWriter schema violation — {exc.error_count()} error(s):\n"
+                + "\n".join(f"  • {e['loc']}: {e['msg']}" for e in exc.errors())
+            ) from exc
 
         total_usage = {
             "input": usage_report["input"] + usage_qa["input"],

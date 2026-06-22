@@ -60,6 +60,8 @@ from shared.portfolio_db import init_db, load_portfolio_state, save_portfolio_st
 from shared.rag_retriever import retrieve_context
 from shared.llm_judge import run_judge
 from shared.report import generate_html
+from shared.validators import validate_tickers
+from shared.models import TaskDecomposition
 from orchestrator.gates import (
     PASS, RETRY, FAIL,
     node_gate_data_collector,
@@ -82,6 +84,7 @@ AGENTS = {
 
 MAX_NEWS_PAYLOAD       = int(os.getenv("MAX_NEWS_PAYLOAD", "15"))
 MAX_CANDIDATES_PAYLOAD = int(os.getenv("MAX_CANDIDATES_PAYLOAD", "3"))
+JUDGE_SCORE_THRESHOLD  = int(os.getenv("JUDGE_SCORE_THRESHOLD", "60"))
 
 _RATE_LIMIT_PATTERN = re.compile(
     r"\b(rate.?limit|too many requests|concurrent connections|overloaded|529)\b",
@@ -120,6 +123,8 @@ class PipelineState(TypedDict):
     previous_runs: list     # recent run_summaries — loaded before FA
     retry_counts: dict      # {"gate_risk_assessor": 0, "gate_report_writer": 0}
     gate_feedback: dict     # {"risk_assessor": "...", "report_writer": "..."}
+    user_prompt: str        # natural language task description — empty if not provided
+    task_decomposition: dict  # TaskDecomposition.model_dump() — empty if not decomposed
 
 
 # ------------------------------------------------------------------ #
@@ -317,7 +322,11 @@ def _route_from_router(state: PipelineState) -> str | list:
 
 
 def _route_after_judge(state: PipelineState) -> str:
-    """In full mode, continue to portfolio branch; in analyze mode, persist memory and stop."""
+    """In full mode, continue to portfolio branch; in analyze mode, persist memory and stop.
+    If the LLM Judge blocked the report (score below threshold), skip portfolio in any mode.
+    """
+    if state.get("degraded", {}).get("judge_blocked"):
+        return "memory_writer"
     if state["mode"] == "full":
         return "portfolio_loader"
     return "memory_writer"
@@ -326,6 +335,89 @@ def _route_after_judge(state: PipelineState) -> str:
 # ------------------------------------------------------------------ #
 # Graph nodes — analysis branch                                        #
 # ------------------------------------------------------------------ #
+
+_DECOMPOSER_SYSTEM = """You are a financial research task decomposer.
+Extract structured parameters from a natural language research request.
+
+Universe: US and EU equities only (no LSE .L tickers, no crypto/DeFi/Web3).
+Allowed sectors: Technology, AI, Software, Semiconductors, Banking, Financial Services.
+Excluded sectors: energy, utilities, real estate, REITs, consumer staples, industrials, airlines.
+
+Respond ONLY with a valid JSON object — no markdown, no explanation:
+{
+  "intent": "ticker_analysis|sector_screen|comparative_analysis|theme_exploration|portfolio_review",
+  "tickers": [],
+  "mode": "analyze|portfolio|full",
+  "research_focus": "concise research focus sentence for downstream agents",
+  "sectors": [],
+  "horizon_weeks": null,
+  "constraints": []
+}"""
+
+_DECOMPOSER_INTENT_HINTS = {
+    "ticker_analysis":      "explicit tickers mentioned",
+    "sector_screen":        "sector or theme mentioned, no specific tickers",
+    "comparative_analysis": "comparison between 2+ entities",
+    "theme_exploration":    "macro/thematic research (e.g. AI, dazi, tassi)",
+    "portfolio_review":     "portfolio review or rebalancing",
+}
+
+
+async def node_task_decomposer(state: PipelineState) -> dict:
+    user_prompt = state.get("user_prompt", "")
+    if not user_prompt:
+        return {}  # no-op — tickers and mode already set by caller
+
+    print(f"\n[DECOMP] TaskDecomposer ← '{user_prompt[:70]}'")
+
+    if is_demo_mode():
+        decomp = TaskDecomposition(
+            intent="ticker_analysis" if state["tickers"] else "sector_screen",
+            tickers=list(state["tickers"]),
+            mode=state["mode"],
+            research_focus=user_prompt,
+            sectors=[],
+            horizon_weeks=None,
+            constraints=[],
+        )
+        print(f"      → intent: {decomp.intent}  focus: '{decomp.research_focus[:50]}' (demo)")
+        return {"task_decomposition": decomp.model_dump()}
+
+    from shared.llm_client import get_llm_client
+    client = get_llm_client()
+    try:
+        response = client.messages.create(
+            model="claude-haiku-4-5-20251001",
+            max_tokens=512,
+            system=_DECOMPOSER_SYSTEM,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+        raw = response.content[0].text.strip()
+        m = re.search(r"\{.*\}", raw, re.DOTALL)
+        data = json.loads(m.group()) if m else {}
+        decomp = TaskDecomposition.model_validate(data)
+    except Exception as e:
+        log.warning("task_decomposer.fallback", error=str(e))
+        decomp = TaskDecomposition(
+            intent="sector_screen" if not state["tickers"] else "ticker_analysis",
+            tickers=list(state["tickers"]),
+            mode=state["mode"],
+            research_focus=user_prompt,
+        )
+
+    print(f"      → intent: {decomp.intent}  tickers: {decomp.tickers or '(from pipeline)'}")
+
+    # Merge tickers: explicit (caller) take precedence; decomposed fill gaps
+    merged = list(dict.fromkeys(state["tickers"] + decomp.tickers))
+    updates: dict = {"task_decomposition": decomp.model_dump()}
+    if merged != state["tickers"]:
+        updates["tickers"] = merged
+    # Only override mode if caller didn't supply tickers (i.e. fully prompt-driven)
+    if not state["tickers"] and decomp.mode != state["mode"]:
+        updates["mode"] = decomp.mode
+
+    return updates
+
 
 async def node_router(state: PipelineState) -> dict:
     mode = state["mode"]
@@ -388,10 +480,16 @@ async def node_data_collector(state: PipelineState) -> dict:
 
 async def node_news_sentiment(state: PipelineState) -> dict:
     print("\n[2/5] NewsSentiment ← fetching RSS feeds")
+    decomp = state.get("task_decomposition", {})
+    topic = (
+        decomp.get("research_focus")
+        or ", ".join(decomp.get("sectors", []))
+        or "Technology, AI, Software, Semiconductors, Banking, Financial Services"
+    )
     try:
         result = await send_task_with_retry(
             "news_sentiment",
-            "Technology, AI, Software, Semiconductors, Banking, Financial Services",
+            topic,
             timeout=180.0,
             correlation_id=state["run_id"],
         )
@@ -457,9 +555,18 @@ async def node_fundamental_analyst(state: PipelineState) -> dict:
                    for t, v in ticker_history.items() if v.get("risk")}
     runs_ctx = format_run_summaries(previous_runs)
 
+    decomp = state.get("task_decomposition", {})
+    research_focus = decomp.get("research_focus", "")
+    constraints = "; ".join(decomp.get("constraints", []))
+    fa_instruction = "Analyse the provided news, themes and fundamentals. Return equity candidates."
+    if research_focus:
+        fa_instruction = f"Research focus: {research_focus}\n\n{fa_instruction}"
+    if constraints:
+        fa_instruction += f"\n\nAdditional constraints: {constraints}"
+
     result = await send_task_with_retry(
         "fundamental_analyst",
-        "Analyse the provided news, themes and fundamentals. Return equity candidates.",
+        fa_instruction,
         data={
             "news": state["news"],
             "themes": state["themes"],
@@ -515,6 +622,7 @@ async def node_risk_assessor(state: PipelineState) -> dict:
 async def node_report_writer(state: PipelineState) -> dict:
     print("\n[5/5] ReportWriter ← generating final report")
     gate_feedback_text = state.get("gate_feedback", {}).get("report_writer", "")
+    decomp = state.get("task_decomposition", {})
     result = await send_task_with_retry(
         "report_writer",
         "Produce the final equity research report in Italian.",
@@ -525,6 +633,7 @@ async def node_report_writer(state: PipelineState) -> dict:
             "themes": state["themes"],
             "previous_runs_context": format_run_summaries(state.get("previous_runs", [])),
             "gate_feedback": gate_feedback_text,
+            "research_focus": decomp.get("research_focus", ""),
         },
         timeout=300.0,
         correlation_id=state["run_id"],
@@ -563,6 +672,13 @@ async def node_llm_judge(state: PipelineState) -> dict:
         degraded["llm_judge_fail"] = judgment.summary
     elif judgment.verdict == "WARN":
         degraded["llm_judge_warn"] = judgment.summary
+
+    if judgment.grounding_score < JUDGE_SCORE_THRESHOLD:
+        degraded["judge_blocked"] = (
+            f"grounding_score {judgment.grounding_score} < threshold {JUDGE_SCORE_THRESHOLD} "
+            f"(verdict: {judgment.verdict}) — report not publishable"
+        )
+        print(f"      ✗ BLOCKED: score {judgment.grounding_score} below threshold {JUDGE_SCORE_THRESHOLD}")
 
     return {"judgment": judgment.to_dict(), "degraded": degraded}
 
@@ -698,6 +814,7 @@ def _build_graph_builder() -> StateGraph:
     builder = StateGraph(PipelineState)
 
     # Nodes — analysis agents
+    builder.add_node("task_decomposer",      node_task_decomposer)
     builder.add_node("router",               node_router)
     builder.add_node("data_collector",       node_data_collector)
     builder.add_node("news_sentiment",       node_news_sentiment)
@@ -715,7 +832,8 @@ def _build_graph_builder() -> StateGraph:
     builder.add_node("gate_risk_assessor",       node_gate_risk_assessor)
     builder.add_node("gate_report_writer",       node_gate_report_writer)
 
-    builder.set_entry_point("router")
+    builder.set_entry_point("task_decomposer")
+    builder.add_edge("task_decomposer", "router")
 
     # Router: fan-out to analysis branch OR go straight to portfolio branch
     builder.add_conditional_edges("router", _route_from_router)
@@ -772,7 +890,13 @@ async def run_pipeline(
     tickers: list[str] | None = None,
     mode: str = "full",
     interactive: bool = False,
+    prompt: str | None = None,
 ) -> dict:
+    if tickers:
+        errors = validate_tickers(tickers)
+        if errors:
+            raise ValueError("Ticker validation failed:\n" + "\n".join(f"  • {e}" for e in errors))
+
     run_id = str(uuid.uuid4())
 
     initial_state: PipelineState = {
@@ -797,6 +921,8 @@ async def run_pipeline(
         "previous_runs": [],
         "retry_counts": {},
         "gate_feedback": {},
+        "user_prompt": prompt or "",
+        "task_decomposition": {},
     }
 
     health = await check_agents_health(mode=mode)
@@ -888,9 +1014,13 @@ if __name__ == "__main__":
         help="Workflow mode: analyze | portfolio | full",
     )
     parser.add_argument("--output", default=None, help="Save JSON result to file")
+    parser.add_argument(
+        "--prompt", default=None,
+        help="Natural language task description (activates task decomposition)",
+    )
     args = parser.parse_args()
 
-    result = asyncio.run(run_pipeline(args.tickers, mode=args.mode, interactive=True))
+    result = asyncio.run(run_pipeline(args.tickers, mode=args.mode, interactive=True, prompt=args.prompt))
 
     if args.mode in ("analyze", "full"):
         print("\n=== SINTESI ESECUTIVA ===")

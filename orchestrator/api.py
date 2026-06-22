@@ -36,6 +36,7 @@ app = FastAPI(
 class ResearchRequest(BaseModel):
     tickers: list[str] = []
     mode: Literal["analyze", "portfolio", "full"] = "full"
+    prompt: str | None = None
 
     @field_validator("tickers")
     @classmethod
@@ -56,7 +57,7 @@ async def research(req: ResearchRequest):
     mode=full      → analysis → portfolio manager (report + trade decisions)
     """
     try:
-        result = await run_pipeline(req.tickers, mode=req.mode, interactive=False)
+        result = await run_pipeline(req.tickers, mode=req.mode, interactive=False, prompt=req.prompt)
         return JSONResponse(result)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
