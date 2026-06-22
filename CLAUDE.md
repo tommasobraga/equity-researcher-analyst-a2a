@@ -67,8 +67,8 @@ uv run pytest tests/test_smoke.py -q
 | `tests/test_gates.py` | 27 | Hard gate nodes — synthetic states, no LLM/HTTP |
 | `tests/test_pipeline_models.py` | 26 | Intermediate Pydantic models |
 | `tests/test_validators.py` | 51 | Domain validators + `validate_tickers()` |
-| `tests/test_prompt_injection.py` | 37 | Prompt injection resistance: known patterns blocked, gaps documented, adversarial RSS chaining |
-| `tests/test_adversarial.py` | 30 | Adversarial tickers (SQL injection, homoglyph, path traversal), report content bypass attempts, defense-in-depth chain |
+| `tests/test_prompt_injection.py` | 36 | Prompt injection resistance: syntactic + semantic patterns blocked (`act as`, `pretend`, `you are now`); 3 gaps documented (split injection, base64, homoglyph); adversarial RSS chaining |
+| `tests/test_adversarial.py` | 31 | Adversarial tickers (SQL injection, homoglyph, path traversal), report content bypass attempts, defense-in-depth chain |
 | `tests/test_smoke.py` | 20 | Live HTTP smoke tests on 5 agents in DEMO_MODE |
 
 ## Architecture
