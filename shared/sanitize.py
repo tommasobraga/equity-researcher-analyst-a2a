@@ -50,9 +50,9 @@ def sanitize_rss_item(title: str, summary: str) -> tuple[str, str]:
         (clean_title, clean_summary) tuple, both safe to include in LLM prompts.
     """
     def clean(text: str, max_len: int) -> str:
-        text = _strip_html(text or "")
+        text = _redact_injections(text or "")  # before HTML strip — catches <system> tags
+        text = _strip_html(text)
         text = _remove_control_chars(text)
-        text = _redact_injections(text)
         return text[:max_len].strip()
 
     return clean(title, _MAX_TITLE_LEN), clean(summary, _MAX_SUMMARY_LEN)

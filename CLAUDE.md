@@ -52,7 +52,24 @@ curl http://localhost:8001/health
 
 # Agent card discovery
 curl http://localhost:8001/.well-known/agent.json
+
+# Run unit tests (no agents required)
+uv run pytest tests/test_validators.py tests/test_gates.py tests/test_pipeline_models.py tests/test_prompt_injection.py tests/test_adversarial.py -q
+
+# Run smoke tests (requires all agents running in DEMO_MODE)
+uv run pytest tests/test_smoke.py -q
 ```
+
+### Test suite (171 unit tests + 20 smoke tests)
+
+| File | Tests | What it covers |
+|---|---|---|
+| `tests/test_gates.py` | 27 | Hard gate nodes — synthetic states, no LLM/HTTP |
+| `tests/test_pipeline_models.py` | 26 | Intermediate Pydantic models |
+| `tests/test_validators.py` | 51 | Domain validators + `validate_tickers()` |
+| `tests/test_prompt_injection.py` | 37 | Prompt injection resistance: known patterns blocked, gaps documented, adversarial RSS chaining |
+| `tests/test_adversarial.py` | 30 | Adversarial tickers (SQL injection, homoglyph, path traversal), report content bypass attempts, defense-in-depth chain |
+| `tests/test_smoke.py` | 20 | Live HTTP smoke tests on 5 agents in DEMO_MODE |
 
 ## Architecture
 

@@ -65,6 +65,7 @@ def _full_text_tema(t) -> str:
 
 _LSE_RE = re.compile(r"\.L$", re.IGNORECASE)
 _TICKER_FORMAT_RE = re.compile(r"^[A-Z0-9.\-]+$")
+_MAX_TICKER_LEN = 12  # longest realistic ticker (e.g. BRK-B=5, ASML.AS=7)
 
 
 def validate_tickers(tickers: list[str]) -> list[str]:
@@ -76,13 +77,20 @@ def validate_tickers(tickers: list[str]) -> list[str]:
     errors: list[str] = []
     for ticker in tickers:
         t = ticker.upper().strip()
+        if not t:
+            errors.append(f"'{ticker}': empty ticker")
+            continue
+        if len(t) > _MAX_TICKER_LEN:
+            errors.append(f"{ticker}: ticker too long (max {_MAX_TICKER_LEN} characters)")
+            continue
+        if not _TICKER_FORMAT_RE.match(t):
+            errors.append(f"{ticker}: invalid ticker format (allowed: letters, digits, dot, hyphen)")
+            continue
         if _LSE_RE.search(t):
             errors.append(f"{ticker}: LSE (UK) equity — excluded from universe")
         crypto_hits = {m.group().lower() for m in _CRYPTO_RE.finditer(t)}
         if crypto_hits:
             errors.append(f"{ticker}: crypto keyword detected ({', '.join(sorted(crypto_hits))}) — excluded from universe")
-        if not _TICKER_FORMAT_RE.match(t):
-            errors.append(f"{ticker}: invalid ticker format (allowed: letters, digits, dot, hyphen)")
     return errors
 
 

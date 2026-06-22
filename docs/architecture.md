@@ -261,5 +261,5 @@ graph TB
 | Orchestrator | deterministic LangGraph — `degraded` uses `Annotated` reducer for parallel writes | LLM-ready: replace node bodies with `react_loop()` |
 | Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
-| Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Extend with adversarial testing and red-teaming suite |
+| Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Adversarial test suite implemented (171 tests) — extend with semantic injection detection |
 | Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; no-op if prompt absent | Wire `horizon_weeks` in RiskAssessor; extend intent set |
