@@ -2,7 +2,7 @@
 
 ## 1. Workflow Diagram
 
-The three selectable workflows via `mode`. Hard gate nodes (yellow) validate each agent's output before it enters the next stage — they can fail-fast or trigger a reflection retry (max 1) with structured feedback injected into the agent prompt. Soft gate validation (DataCollector, NewsSentiment) runs inline inside each agent node to preserve the symmetric 3-edge AND-join at FundamentalAnalyst.
+The three selectable workflows via `mode`. The pipeline starts with **TaskDecomposer** (no-op when no prompt is provided) and ends with **MemoryWriter** as the single exit point for all branches. Hard gate nodes (yellow) validate each agent's output before the next stage — they can fail-fast or trigger a reflection retry (max 1) with structured feedback injected into the agent prompt. Soft gate validation (DataCollector, NewsSentiment) runs inline inside each agent node to preserve the symmetric 3-edge AND-join at FundamentalAnalyst.
 
 ```mermaid
 flowchart TD
@@ -12,9 +12,13 @@ flowchart TD
     classDef store  fill:#fef9c3,stroke:#ca8a04,color:#713f12
     classDef term   fill:#f1f5f9,stroke:#94a3b8,color:#334155
     classDef gate   fill:#fde68a,stroke:#d97706,color:#78350f
+    classDef guard  fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
 
     START(["Orchestrator API :8000"]):::infra
-    START --> MODE{mode}:::term
+    START --> DECOMP
+
+    DECOMP["TaskDecomposer<br/>Haiku 4.5<br/><i>no-op se prompt assente</i>"]:::haiku
+    DECOMP --> MODE{mode}:::term
 
     MODE -->|"analyze / full"| DC & NS & RAG
     MODE -->|portfolio| PL
@@ -38,25 +42,93 @@ flowchart TD
     GRA -->|"RETRY"| RA
     GRA -->|"PASS"| RW
 
-    RW["ReportWriter :8009<br/>Sonnet 4.6 · direct"]:::sonnet
+    RW["ReportWriter :8009<br/>Sonnet 4.6 · direct<br/><i>Pydantic schema validation</i>"]:::sonnet
     RW --> GRW["gate_rw<br/>hard · retry max 1"]:::gate
 
     GRW -->|"FAIL"| STOP
     GRW -->|"RETRY"| RW
-    GRW -->|"PASS · mode=analyze"| OUT_A(["Report finale"]):::infra
-    GRW -->|"PASS · mode=full"| PL
+    GRW -->|"PASS"| JUDGE
+
+    JUDGE["LLMJudge<br/>Sonnet 4.6<br/><i>grounding score 0–100<br/>threshold: JUDGE_SCORE_THRESHOLD</i>"]:::sonnet
+
+    JUDGE -->|"blocked<br/>(score < threshold)"| MW
+    JUDGE -->|"mode=analyze"| MW
+    JUDGE -->|"mode=full"| PL
 
     PL[("portfolio.db")]:::store
     PL --> PM
 
     PM["PortfolioManager :8010<br/>Sonnet 4.6 · direct"]:::sonnet
+    PM --> MW
 
-    PM --> OUT_B(["Portfolio update"]):::infra
+    MW(["MemoryWriter<br/><i>exit point unico</i>"]):::infra
 ```
 
 ---
 
-## 2. Component Diagram
+## 2. Guardrails
+
+Three layers of deterministic control that run at zero LLM cost (A, B) or as an independent LLM check (C).
+
+| ID | Nome | Dove | Cosa fa |
+|---|---|---|---|
+| **A** | Ticker validation | `shared/validators.py` → `run_pipeline()` | Blocca ticker LSE (`.L`), crypto/DeFi e formato non valido prima che la pipeline parta. `ValueError` → HTTP 400 nell'API. |
+| **B** | Pydantic schema enforcement | `agents/report-writer/report_writer.py` | Dopo `json.loads()`, `Report.model_validate()` garantisce la conformità allo schema. `ValidationError` → `A2ATaskResult.fail()` → retry via `gate_rw`. |
+| **C** | Grounding score threshold | `orchestrator/main.py` → `node_llm_judge` | Se `judgment.grounding_score < JUDGE_SCORE_THRESHOLD` (default 60, env var), scrive `degraded["judge_blocked"]` e `_route_after_judge` salta il branch portfolio. |
+
+Altri guardrail pre-esistenti:
+
+| Tipo | Componente | Funzione |
+|---|---|---|
+| Input sanitization | `shared/sanitize.py` | Strip HTML, bidirezionale, prompt injection da RSS |
+| Behavioral constraints | Prompt di sistema agenti | Universo US/EU, settori esclusi, lingua italiana |
+| Soft gate DC/NS | `node_data_collector`, `node_news_sentiment` | Validazione payload inline, degraded graceful |
+| Hard gates FA/RA/RW | `orchestrator/gates.py` | Fail-fast o retry con feedback strutturato |
+| QA pass | `report_writer.py` interno | Seconda chiamata LLM: schema, citation, scoring |
+| Domain validator | `shared/validators.py` → `validate()` | Deterministic: UK stocks, crypto, direttive, citation format, score range |
+
+---
+
+## 3. Task Decomposition
+
+Il **TaskDecomposer** è il primo nodo del grafo LangGraph. Riceve un prompt in linguaggio naturale e ne estrae parametri strutturati (`TaskDecomposition`) che parametrizzano i nodi a valle.
+
+```
+run_pipeline(prompt="Analizza opportunità AI europee con orizzonte 3 mesi")
+    → node_task_decomposer (Haiku 4.5)
+    → TaskDecomposition {
+        intent: "sector_screen",
+        tickers: [],
+        mode: "analyze",
+        research_focus: "Opportunità nel settore AI europeo con orizzonte ~12 settimane",
+        sectors: ["AI", "Semiconductors"],
+        horizon_weeks: 12,
+        constraints: ["EU only"]
+      }
+    → iniettato in: NewsSentiment (topic RSS), FundamentalAnalyst (istruzione), ReportWriter (user_prompt)
+```
+
+**Modalità di utilizzo:**
+
+| Input | Comportamento |
+|---|---|
+| Solo `--prompt` | Decomposer estrae tickers, mode, focus dal testo |
+| `--tickers` + `--prompt` | Tickers espliciti + quelli estratti (merge, espliciti precedono); focus dal prompt |
+| Solo `--tickers` | Decomposer è no-op, pipeline invariata |
+
+**API:**
+```json
+{ "tickers": [], "mode": "analyze", "prompt": "Trova candidati nel settore semiconduttori europei con catalizzatori nel Q3 2026" }
+```
+
+**CLI:**
+```bash
+uv run python orchestrator/main.py --prompt "Confronta AAPL e MSFT sul momentum post-earnings" --mode analyze
+```
+
+---
+
+## 4. Component Diagram
 
 Structural dependencies between layers: Orchestrator, Agents, Shared Library, Storage and Externals.
 
@@ -77,11 +149,14 @@ graph TB
     end
 
     subgraph ORCHESTRATOR ["Orchestrator :8000"]
-        API["api.py — FastAPI"]:::orc
+        API["api.py — FastAPI<br/><i>prompt: str | None</i>"]:::orc
+        DECOMP["task_decomposer<br/>Haiku 4.5 · TaskDecomposition"]:::orc
         GRAPH["main.py — LangGraph PipelineState<br/><i>degraded: Annotated reducer</i>"]:::orc
         GATES["gates.py — 3 hard gate nodes<br/>FA · RA · RW + retry<br/><i>soft gates inlined in DC · NS</i>"]:::gate
-        API --> GRAPH
+        JUDGE_N["llm_judge — grounding check<br/><i>JUDGE_SCORE_THRESHOLD</i>"]:::orc
+        API --> DECOMP --> GRAPH
         GRAPH --> GATES
+        GRAPH --> JUDGE_N
     end
 
     subgraph AGENTS ["Agent Layer — A2A JSON-RPC 2.0"]
@@ -89,7 +164,7 @@ graph TB
         NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline</i>"]:::agent
         FA["FundamentalAnalyst :8003<br/>Sonnet 4.6 · ReAct"]:::agent
         RA["RiskAssessor :8004<br/>Sonnet 4.6 · ReAct"]:::agent
-        RW["ReportWriter :8009<br/>Sonnet 4.6 · direct"]:::agent
+        RW["ReportWriter :8009<br/>Sonnet 4.6 · direct<br/><i>Pydantic schema validation</i>"]:::agent
         PM["PortfolioManager :8010<br/>Sonnet 4.6 · direct"]:::agent
     end
 
@@ -105,22 +180,24 @@ graph TB
         PORT_DB["portfolio_db.py"]:::shared
         MEM["agent_memory.py"]:::shared
         RAG_RET["rag_retriever.py — retrieve_context()"]:::shared
-        PIPE_MDL["pipeline_models.py — intermediate Pydantic models"]:::shared
-        VALIDATORS["validators.py — deterministic constraints"]:::shared
+        MODELS["models.py — Report · TaskDecomposition<br/>Correction · pipeline models"]:::shared
+        VALIDATORS["validators.py — validate() · validate_tickers()"]:::shared
+        JUDGE_LIB["llm_judge.py — run_judge()"]:::shared
     end
 
     subgraph STORAGE ["Storage"]
         P_FILE[("portfolio.db")]:::storage
         A_FILE[("audit_*.jsonl")]:::storage
-        M_FILE[("memory/*.db")]:::storage
+        M_FILE[("memory.db")]:::storage
         D_FILE[("demo/response.json")]:::storage
         R_FILE[("data/rag/documents/")]:::storage
+        C_FILE[("checkpoints.db")]:::storage
     end
 
     GRAPH -->|"A2A tasks/send"| DC & NS
     DC & NS -->|result| FA
     FA --> RA --> RW
-    RW -->|"mode=full"| PM
+    RW -->|"mode=full, not blocked"| PM
 
     DC & NS & FA & RA --> REACT
     DC & NS & FA & RA & RW & PM --> LLC
@@ -133,9 +210,13 @@ graph TB
     PM & GRAPH --> PORT_DB
     DC & NS & FA & RA & RW & PM --> MEM
 
-    GATES --> PIPE_MDL
+    GATES --> MODELS
     GATES --> VALIDATORS
-    DC & NS --> PIPE_MDL
+    DC & NS --> MODELS
+
+    RW --> MODELS
+    JUDGE_N --> JUDGE_LIB
+    DECOMP --> MODELS
 
     LLC --> LLM_P
     TOOLS -->|"rss_feed.py"| RSS_P
@@ -147,18 +228,19 @@ graph TB
     DEMO --> D_FILE
     GRAPH --> RAG_RET
     RAG_RET --> R_FILE
+    GRAPH --> C_FILE
 ```
 
 ---
 
-## Evolution Notes
+## 5. Evolution Notes
 
 | Layer | Status | Next steps |
 |---|---|---|
 | Data Provider | stub — `NotImplementedError` | Phase 5: Refinitiv LSEG or Bloomberg B-PIPE |
 | RSS Feeds | operational | Phase 5: verify commercial license |
 | LLM Provider | `local` (test) / `bedrock` (prod) | Evaluate Vertex for EU data residency |
-| Storage | SQLite (`portfolio.db`) | Phase 5/6: upgrade to PostgreSQL |
+| Storage | SQLite (`portfolio.db`, `memory.db`, `checkpoints.db`) | Phase 5/6: upgrade to PostgreSQL |
 | Agent Memory | SQLite per-agent (Phase A+B) | Future phase: vector store for RAG |
 | RAG Retriever | TF-IDF keyword (operational) | Phase 5+: embedding-based with Bedrock Titan on pgvector/ChromaDB |
 | RAG Documents | 11 synthetic documents in `data/rag/documents/` | Replace with real internal documentation |
@@ -166,3 +248,5 @@ graph TB
 | Orchestrator | deterministic LangGraph — `degraded` uses `Annotated` reducer for parallel writes | LLM-ready: replace node bodies with `react_loop()` |
 | Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
+| Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Extend with adversarial testing and red-teaming suite |
+| Task Decomposition | NL prompt → `TaskDecomposition` via Haiku; no-op if prompt absent | Extend intents; wire `horizon_weeks` into RiskAssessor prompt |

@@ -27,6 +27,10 @@ uv run python orchestrator/main.py --tickers AAPL MSFT UCG.MI --mode full
 uv run python orchestrator/main.py --tickers AAPL MSFT --mode analyze
 uv run python orchestrator/main.py --mode portfolio
 
+# Via CLI con prompt NL (task decomposition)
+uv run python orchestrator/main.py --prompt "Analizza opportunità AI europee con orizzonte 3 mesi" --mode analyze
+uv run python orchestrator/main.py --tickers AAPL MSFT --prompt "Confronta momentum post-earnings" --mode analyze
+
 # Save output to file (CLI only)
 uv run python orchestrator/main.py --tickers AAPL MSFT --mode analyze --output report.json
 
@@ -34,6 +38,11 @@ uv run python orchestrator/main.py --tickers AAPL MSFT --mode analyze --output r
 curl -X POST http://localhost:8000/research \
   -H "Content-Type: application/json" \
   -d '{"tickers":["AAPL","MSFT"],"mode":"analyze"}'
+
+# Con prompt NL
+curl -X POST http://localhost:8000/research \
+  -H "Content-Type: application/json" \
+  -d '{"mode":"analyze","prompt":"Trova candidati nel settore semiconduttori europei"}'
 
 curl http://localhost:8000/portfolio   # current portfolio state
 curl http://localhost:8000/health      # aggregated health for all 6 agents
@@ -128,12 +137,14 @@ All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, Ri
 - `shared/secrets.py` — `get_secret()`: provider-agnostic secret factory (local/azure/aws)
 - `shared/sanitize.py` — `sanitize_rss_item()`: RSS input sanitization against prompt injection
 - `shared/rag_retriever.py` — `retrieve_context(query_terms, top_k)`: TF-IDF retrieval on documents in `data/rag/documents/`. Parallel node in the orchestrator (fan-out alongside DataCollector and NewsSentiment). Output injected into FundamentalAnalyst prompt as `rag_context`. Stable public interface: upgrade to embedding-based (Bedrock Titan) without orchestrator changes.
-- `shared/llm_judge.py` — `run_judge()`: independent LLM grounding check. Runs after ReportWriter; receives original source material (news, fundamentals, RAG context) and returns a `JudgmentResult` (verdict: PASS/WARN/FAIL, grounding_score 0-100). FAIL triggers conservative mode in PortfolioManager.
+- `shared/llm_judge.py` — `run_judge()`: independent LLM grounding check. Runs after ReportWriter; receives original source material (news, fundamentals, RAG context) and returns a `JudgmentResult` (verdict: PASS/WARN/FAIL, grounding_score 0-100). FAIL triggers conservative mode in PortfolioManager. If `grounding_score < JUDGE_SCORE_THRESHOLD`, the portfolio branch is skipped (report flagged as non-publishable).
+- `shared/models.py` — Pydantic models: `Report` (full report schema with `model_validate()` enforcement in ReportWriter), `TaskDecomposition` (NL prompt decomposition output), `Scoring`, `Candidato`, `Correction` and related.
+- `shared/validators.py` — `validate(report)`: deterministic output constraints (no UK stocks, no crypto, no directives, citation format, score range). `validate_tickers(tickers)`: input guardrail — rejects LSE (`.L`), crypto keywords, invalid format before the pipeline starts.
 
 ### Orchestrator internals
 
-- `orchestrator/main.py` — `run_pipeline(tickers, mode)`: LangGraph entry point. Compiles the graph with `_build_graph_builder()` on every call (to allow correct checkpointing). `PipelineState` TypedDict fields: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `judgment`, `ticker_history`, `previous_runs`.
-- `orchestrator/api.py` — FastAPI on port 8000. `POST /research`, `GET /portfolio`, `GET /health`. Routes requests to `run_pipeline()`.
+- `orchestrator/main.py` — `run_pipeline(tickers, mode, interactive, prompt)`: LangGraph entry point. First node is `node_task_decomposer` (no-op if `prompt` is None). Compiles the graph with `_build_graph_builder()` on every call (to allow correct checkpointing). `PipelineState` TypedDict fields: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `judgment`, `ticker_history`, `previous_runs`, `user_prompt`, `task_decomposition`.
+- `orchestrator/api.py` — FastAPI on port 8000. `POST /research` (accepts `tickers`, `mode`, `prompt`), `GET /portfolio`, `GET /health`. Routes requests to `run_pipeline()`.
 
 ### Domain constraints (hardcoded in agent prompts)
 
@@ -181,3 +192,6 @@ Credentials managed by the IAM role on the compute resource — no secrets in co
 | `VERTEX_PROJECT_ID` | GCP project ID | — | required if `LLM_PROVIDER=vertex` |
 | `A2A_SHARED_SECRET` | 32-byte hex | — | inter-agent HMAC; middleware disabled if absent |
 | `SECRET_PROVIDER` | `local\|azure\|aws` | `local` | provider for `shared/secrets.py` |
+| `JUDGE_SCORE_THRESHOLD` | integer 0–100 | `60` | grounding score minimum — below this the portfolio branch is skipped |
+| `MAX_NEWS_PAYLOAD` | integer | `15` | max news items passed to FundamentalAnalyst |
+| `MAX_CANDIDATES_PAYLOAD` | integer | `3` | max candidates passed to RiskAssessor |
