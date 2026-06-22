@@ -85,7 +85,7 @@ Altri guardrail pre-esistenti:
 | Soft gate DC/NS | `node_data_collector`, `node_news_sentiment` | Validazione payload inline, degraded graceful |
 | Hard gates FA/RA/RW | `orchestrator/gates.py` | Fail-fast o retry con feedback strutturato |
 | QA pass | `report_writer.py` interno | Seconda chiamata LLM: schema, citation, scoring |
-| Domain validator | `shared/validators.py` → `validate()` | Deterministic: UK stocks, crypto, direttive, citation format, score range |
+| Domain validator | `shared/validators.py` → `validate()` | Deterministic: UK stocks (`.L|.LON|.LN|.XL`), crypto (keyword + frasi: "digital asset", "on-chain"), direttive (con NFKC + Cyrillic lookalike normalisation), citation format, score range |
 
 ---
 
