@@ -80,7 +80,7 @@ Altri guardrail pre-esistenti:
 
 | Tipo | Componente | Funzione |
 |---|---|---|
-| Input sanitization | `shared/sanitize.py` | Strip HTML, bidirezionale, prompt injection da RSS |
+| Input sanitization | `shared/sanitize.py` + `news_sentiment.py` | Strip HTML, bidi override, pattern sintattici + semantici (`act as`, `pretend`, `you are now`, `new system instructions`); separazione strutturale XML nel tool result di NewsSentiment. Gap documentati: split injection, base64, omoglifi. |
 | Behavioral constraints | Prompt di sistema agenti | Universo US/EU, settori esclusi, lingua italiana |
 | Soft gate DC/NS | `node_data_collector`, `node_news_sentiment` | Validazione payload inline, degraded graceful |
 | Hard gates FA/RA/RW | `orchestrator/gates.py` | Fail-fast o retry con feedback strutturato |
@@ -261,5 +261,5 @@ graph TB
 | Orchestrator | deterministic LangGraph — `degraded` uses `Annotated` reducer for parallel writes | LLM-ready: replace node bodies with `react_loop()` |
 | Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
-| Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Adversarial test suite implemented (171 tests) — extend with semantic injection detection |
+| Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Adversarial test suite: 171 tests. Semantic injection patterns aggiunti (`act as`, `pretend`, `you are now`); separazione strutturale XML in NewsSentiment. Gap aperti: split injection, base64, homoglyph (documentati in `test_prompt_injection.py`). |
 | Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; no-op if prompt absent | Wire `horizon_weeks` in RiskAssessor; extend intent set |

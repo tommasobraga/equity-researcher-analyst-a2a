@@ -17,12 +17,19 @@ _CONTROL_CHARS_RE = re.compile(
     r"​-‏‪-‮﻿]",  # zero-width, bidi overrides, BOM
 )
 
-# Common prompt injection patterns found in malicious RSS feeds
+# Common prompt injection patterns found in malicious RSS feeds.
+# Syntactic patterns catch known tokens; semantic patterns catch common persona-hijack phrases.
+# A denylist is inherently incomplete — structural separation in the prompt (XML tags) is the
+# primary defense; this is the first cheap filter layer.
 _INJECTION_PATTERNS_RE = re.compile(
     r"(ignore\s+(previous|prior|all)\s+instructions?|"
     r"system\s*:|<\s*/?system\s*>|"
     r"\[INST\]|\[/INST\]|"
-    r"<\|im_start\|>|<\|im_end\|>)",
+    r"<\|im_start\|>|<\|im_end\|>|"
+    r"act\s+as|"
+    r"pretend\s+(you\s+are|to\s+be)|"
+    r"you\s+are\s+now|"
+    r"new\s+system\s+instructions?)",
     re.IGNORECASE,
 )
 
