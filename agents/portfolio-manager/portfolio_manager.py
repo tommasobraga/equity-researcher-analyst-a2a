@@ -28,6 +28,13 @@ from shared.llm_client import get_llm_client
 
 log = structlog.get_logger()
 
+_QUALITY_LABELS = {
+    "alta": "high",
+    "media": "medium",
+    "bassa": "low",
+    "dati_insufficienti": "insufficient data",
+}
+
 _MODEL_ID = "claude-sonnet-4-6"
 
 # ------------------------------------------------------------------ #
@@ -161,7 +168,7 @@ def _build_full_mode_response(
                 "action": "SELL",
                 "shares": pos["shares"],
                 "price": pos["entry_price"],
-                "reason": f"Quality degraded to '{quality}' in risk assessment — position liquidated",
+                "reason": f"Quality degraded to '{_QUALITY_LABELS.get(quality, quality)}' in risk assessment — position liquidated",
             }
             sell_trades.append(sell_trade)
             all_trades.append(sell_trade)
