@@ -198,6 +198,52 @@ select#mode { width: 90px; }
   opacity: 0.3;
 }
 
+/* Gate nodes */
+.gate-node {
+  width: 200px;
+  border: 1px dashed #404040;
+  border-radius: 3px;
+  padding: 4px 12px;
+  text-align: center;
+  font-size: 10px;
+  background: transparent;
+  color: #505050;
+  transition: all 0.25s ease;
+}
+.gate-node .node-label { font-weight: normal; letter-spacing: 0.3px; }
+.gate-node .node-detail { font-size: 9px; color: #505050; margin-top: 1px; min-height: 12px; }
+
+.gate-node[data-state="working"] {
+  border-color: var(--yellow);
+  border-style: dashed;
+  color: var(--yellow);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.gate-node[data-state="working"] .node-detail { color: #a09000; }
+
+.gate-node[data-state="completed"] {
+  border-color: #2e7d32;
+  border-style: dashed;
+  color: #4caf50;
+}
+.gate-node[data-state="completed"] .node-detail { color: #2e7d32; }
+
+.gate-node[data-state="warned"] {
+  border-color: var(--yellow);
+  border-style: solid;
+  color: var(--yellow);
+  background: #1a1500;
+}
+.gate-node[data-state="warned"] .node-detail { color: #a09000; }
+
+.gate-node[data-state="failed"] {
+  border-color: var(--red);
+  border-style: solid;
+  color: var(--red);
+  background: #1f0d0d;
+}
+.gate-node[data-state="skipped"] { opacity: 0.2; }
+
 @keyframes pulse {
   0%, 100% { opacity: 1; }
   50%       { opacity: 0.55; }
@@ -537,16 +583,31 @@ select#mode { width: 90px; }
         <div class="node-detail" id="det-fundamental_analyst">—</div>
       </div>
       <div class="arrow"></div>
+      <div class="gate-node" id="node-gate_fundamental_analyst" data-state="pending">
+        <div class="node-label">▷ Gate FA</div>
+        <div class="node-detail" id="det-gate_fundamental_analyst">—</div>
+      </div>
+      <div class="arrow"></div>
 
       <div class="node" id="node-risk_assessor" data-state="pending">
         <div class="node-label">RiskAssessor</div>
         <div class="node-detail" id="det-risk_assessor">—</div>
       </div>
       <div class="arrow"></div>
+      <div class="gate-node" id="node-gate_risk_assessor" data-state="pending">
+        <div class="node-label">▷ Gate RA</div>
+        <div class="node-detail" id="det-gate_risk_assessor">—</div>
+      </div>
+      <div class="arrow"></div>
 
       <div class="node" id="node-report_writer" data-state="pending">
         <div class="node-label">ReportWriter</div>
         <div class="node-detail" id="det-report_writer">—</div>
+      </div>
+      <div class="arrow"></div>
+      <div class="gate-node" id="node-gate_report_writer" data-state="pending">
+        <div class="node-label">▷ Gate RW</div>
+        <div class="node-detail" id="det-gate_report_writer">—</div>
       </div>
       <div class="arrow"></div>
 
@@ -804,6 +865,11 @@ function handleEvent(ev) {
         case 'report_writer':
           detail = d.qa ? `QA: ${d.qa}` : '';
           break;
+        case 'gate_fundamental_analyst':
+        case 'gate_risk_assessor':
+        case 'gate_report_writer':
+          detail = 'PASS';
+          break;
         case 'llm_judge':
           if (d.score !== null && d.score !== undefined) {
             updateScore(d.score);
@@ -826,10 +892,23 @@ function handleEvent(ev) {
       addLog('type-node_failed', '✗', `${nodeLabel(ev.node)} FAILED: ${ev.error || ''}`, ev.ts);
       break;
 
-    case 'guardrail':
+    case 'guardrail': {
       addGuardrail(ev.source, ev.reason, ev.category);
       addLog('type-guardrail', '⚠', `[${(ev.category || 'guardrail').toUpperCase()}] ${ev.source} — ${ev.reason}`, ev.ts);
+      // Reflect guardrail outcome on the gate node in the diagram
+      const GATE_SOURCE_TO_NODE = {
+        'FundamentalAnalyst gate': 'gate_fundamental_analyst',
+        'RiskAssessor gate':       'gate_risk_assessor',
+        'ReportWriter gate':       'gate_report_writer',
+      };
+      const gateNodeId = GATE_SOURCE_TO_NODE[ev.source];
+      if (gateNodeId) {
+        const gateState = (ev.category === 'blocked' || ev.category === 'security') ? 'failed' : 'warned';
+        const shortReason = ev.reason.length > 28 ? ev.reason.slice(0, 28) + '…' : ev.reason;
+        setNodeState(gateNodeId, gateState, shortReason);
+      }
       break;
+    }
 
     case 'pipeline_completed': {
       const m = ev.metrics || {};
