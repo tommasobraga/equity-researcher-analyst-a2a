@@ -637,6 +637,8 @@ async def node_fundamental_analyst(state: PipelineState) -> dict:
 
 async def node_risk_assessor(state: PipelineState) -> dict:
     print(f"\n[4/5] RiskAssessor ← {len(state['candidates'])} candidate(s)")
+    decomp = state.get("task_decomposition", {})
+    horizon_weeks = decomp.get("horizon_weeks")
     ra_snippets = {
         t: format_risk_history(t, v["risk"])
         for t, v in state.get("ticker_history", {}).items()
@@ -650,6 +652,7 @@ async def node_risk_assessor(state: PipelineState) -> dict:
             "candidates": state["candidates"],
             "risk_history": ra_snippets,
             "gate_feedback": gate_feedback_text,
+            "horizon_weeks": horizon_weeks,
         },
         timeout=300.0,
         correlation_id=state["run_id"],

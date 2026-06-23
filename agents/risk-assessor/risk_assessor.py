@@ -91,6 +91,7 @@ _EXECUTORS = {"check_volatility_data": _check_volatility}
 # ------------------------------------------------------------------ #
 
 _INSTRUCTIONS = """You are a CFA-aligned risk analyst. Today is {today}.
+Investment horizon: {horizon}.
 
 For each equity candidate:
 1. Call check_volatility_data to verify that 52w range and P/E are available.
@@ -104,6 +105,10 @@ SCORING RULES:
 - totale = exact arithmetic sum of the 5 dimensions (max 50).
 - Be specific: reference actual company financials, product cycles, named events.
 - All forward-looking dates must be AFTER {today}.
+- fit_orizzonte: score how well the candidate's catalysts align with the investment horizon ({horizon}).
+  Short horizon (≤8 weeks): favour near-term catalysts (earnings, product launches, macro events).
+  Medium horizon (9–26 weeks): favour visible growth inflections within two quarters.
+  Long horizon (>26 weeks): favour structural growth stories and compounding moats.
 
 Return ONLY a JSON array (no prose, no markdown fences):
 [{{
@@ -193,6 +198,8 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         return A2ATaskResult.fail(task.id, "No candidates received from FundamentalAnalyst.")
 
     today = date.today().isoformat()
+    horizon_weeks = input_data.get("horizon_weeks")
+    horizon = f"{horizon_weeks} weeks" if horizon_weeks else "medium-term (12 weeks, if not specified)"
     candidates_json = json.dumps(candidates, ensure_ascii=False)
 
     risk_history_parts = [
@@ -204,6 +211,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     user_prompt = (
         (f"GATE VALIDATION FEEDBACK — fix these issues in your response:\n{gate_feedback}\n\n---\n\n" if gate_feedback else "")
         + (f"HISTORICAL RISK CONTEXT FROM PREVIOUS RUNS:\n{history_block}\n\n---\n\n" if history_block else "")
+        + f"INVESTMENT HORIZON: {horizon}\n\n"
         + f"EQUITY CANDIDATES:\n{candidates_json}\n\n"
         "Now perform the risk assessment for each candidate."
     )
@@ -212,7 +220,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
     try:
         raw_text = await react_loop(
             client=client,
-            system=_INSTRUCTIONS.format(today=today),
+            system=_INSTRUCTIONS.format(today=today, horizon=horizon),
             user_prompt=user_prompt,
             tools=_TOOLS,
             executors=_EXECUTORS,
