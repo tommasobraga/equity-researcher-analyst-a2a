@@ -417,6 +417,62 @@ select#mode { width: 90px; }
   /* clip the gradient to show only up to current score */
 }
 
+/* ── Portfolio section ───────────────────────────────────── */
+.portfolio-section {
+  display: none;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+.portfolio-body {
+  padding: 10px 16px 12px;
+  max-height: 260px;
+  overflow-y: auto;
+  display: none;
+}
+.portfolio-body.open { display: block; }
+
+.portfolio-state {
+  display: flex;
+  gap: 24px;
+  margin-bottom: 10px;
+  font-size: 11px;
+  flex-wrap: wrap;
+}
+.ps-item { display: flex; flex-direction: column; gap: 2px; }
+.ps-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.ps-value { font-size: 13px; font-weight: bold; color: var(--text); }
+.ps-value.green { color: var(--green); }
+.ps-value.red   { color: var(--red); }
+
+.trade-table { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 8px; }
+.trade-table th {
+  text-align: left; font-size: 9px; color: var(--text-dim);
+  text-transform: uppercase; letter-spacing: 1px;
+  padding: 3px 6px 5px; border-bottom: 1px solid var(--border);
+}
+.trade-table td { padding: 4px 6px; border-bottom: 1px solid #222; vertical-align: top; color: var(--text); }
+.trade-table tr:last-child td { border-bottom: none; }
+.trade-table tr.hold td { opacity: 0.45; }
+
+.t-action { font-weight: bold; }
+.t-action.buy  { color: var(--green); }
+.t-action.sell { color: var(--red); }
+.t-action.hold { color: var(--text-dim); }
+
+.approval-badge {
+  font-size: 8px; font-weight: bold; padding: 1px 4px;
+  border-radius: 2px; white-space: nowrap;
+}
+.approval-badge.auto    { background: #0d2010; border: 1px solid #2e7d32; color: #4caf50; }
+.approval-badge.pending { background: #2a1f00; border: 1px solid #f57f17; color: #fdd835; }
+
+.t-reason { color: var(--text-dim); font-size: 10px; max-width: 260px; }
+.portfolio-review {
+  margin-top: 8px; font-size: 10px; color: var(--text-dim);
+  line-height: 1.5; border-top: 1px solid var(--border); padding-top: 6px;
+}
+
 /* ── Report section ──────────────────────────────────────── */
 .report-section {
   display: none;
@@ -685,6 +741,26 @@ select#mode { width: 90px; }
   </div>
 </div>
 
+<!-- ── Portfolio section ──────────────────────────────────── -->
+<div class="portfolio-section" id="portfolio-section">
+  <button class="report-toggle" onclick="togglePortfolio(this)">
+    <span>Portfolio &amp; Trades</span>
+    <span id="portfolio-toggle-icon">▲ collapse</span>
+  </button>
+  <div class="portfolio-body open" id="portfolio-body">
+    <div class="portfolio-state" id="portfolio-state"></div>
+    <table class="trade-table">
+      <thead>
+        <tr>
+          <th>Ticker</th><th>Action</th><th>Shares</th><th>Price</th><th>Approval</th><th>Rationale</th>
+        </tr>
+      </thead>
+      <tbody id="trade-rows"></tbody>
+    </table>
+    <div class="portfolio-review" id="portfolio-review"></div>
+  </div>
+</div>
+
 <!-- ── Report section ─────────────────────────────────────── -->
 <div class="report-section" id="report-section">
   <button class="report-toggle" onclick="toggleReport(this)">
@@ -788,6 +864,61 @@ function toggleReport(btn) {
   icon.textContent = open ? '▲ collapse' : '▼ expand';
 }
 
+function togglePortfolio(btn) {
+  const body = document.getElementById('portfolio-body');
+  const icon = document.getElementById('portfolio-toggle-icon');
+  const open = body.classList.toggle('open');
+  icon.textContent = open ? '▲ collapse' : '▼ expand';
+}
+
+function renderPortfolio(d) {
+  const isExecuted = d.cash_after !== null && d.cash_after !== undefined;
+
+  // Cash summary
+  const ps = document.getElementById('portfolio-state');
+  const cashDelta = isExecuted ? (d.cash_after - d.cash_before) : null;
+  const deltaStr = cashDelta !== null
+    ? `<span class="ps-value ${cashDelta >= 0 ? 'green' : 'red'}">${cashDelta >= 0 ? '+' : ''}${cashDelta.toLocaleString('en-US', {maximumFractionDigits: 2})}</span>`
+    : '';
+  ps.innerHTML = `
+    <div class="ps-item"><span class="ps-label">Cash before</span><span class="ps-value">$${(d.cash_before || 0).toLocaleString('en-US', {maximumFractionDigits: 2})}</span></div>
+    <div class="ps-item"><span class="ps-label">Cash after</span><span class="ps-value ${cashDelta < 0 ? 'red' : ''}">$${(d.cash_after || 0).toLocaleString('en-US', {maximumFractionDigits: 2})}</span></div>
+    ${cashDelta !== null ? `<div class="ps-item"><span class="ps-label">Deployed</span>${deltaStr}</div>` : ''}
+    <div class="ps-item"><span class="ps-label">Positions</span><span class="ps-value">${(d.positions_after || []).length} open</span></div>
+  `;
+
+  // Trade table
+  const tbody = document.getElementById('trade-rows');
+  tbody.innerHTML = '';
+  for (const t of (d.trades_detail || [])) {
+    const action = (t.action || '').toUpperCase();
+    const isActive = action === 'BUY' || action === 'SELL';
+    const tr = document.createElement('tr');
+    if (!isActive) tr.className = 'hold';
+    const approvalCell = isActive
+      ? `<span class="approval-badge auto">AUTO</span>`
+      : `<span style="color:var(--text-dim);font-size:10px">—</span>`;
+    const price = t.price ? `$${t.price.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}` : '—';
+    const shares = t.shares ? t.shares : '—';
+    tr.innerHTML = `
+      <td><strong>${t.ticker || '—'}</strong></td>
+      <td><span class="t-action ${action.toLowerCase()}">${action}</span></td>
+      <td>${shares}</td>
+      <td>${price}</td>
+      <td>${approvalCell}</td>
+      <td class="t-reason">${(t.reason || '').slice(0, 80)}${(t.reason || '').length > 80 ? '…' : ''}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+
+  // Review
+  if (d.review) {
+    document.getElementById('portfolio-review').textContent = d.review;
+  }
+
+  document.getElementById('portfolio-section').style.display = 'block';
+}
+
 // Node labels for display
 const NODE_LABELS = {
   task_decomposer:     'TaskDecomposer',
@@ -884,6 +1015,7 @@ function handleEvent(ev) {
           break;
         case 'portfolio_manager':
           detail = d.trades !== undefined ? `${d.trades} trade(s)` : '';
+          if (d.trades_detail) renderPortfolio(d);
           break;
       }
       setNodeState(ev.node, 'completed', detail);
@@ -973,6 +1105,10 @@ async function runPipeline() {
   document.getElementById('agent-health').innerHTML = '';
   document.getElementById('run-id-badge').textContent = '';
   document.getElementById('report-section').style.display = 'none';
+  document.getElementById('portfolio-section').style.display = 'none';
+  document.getElementById('trade-rows').innerHTML = '';
+  document.getElementById('portfolio-state').innerHTML = '';
+  document.getElementById('portfolio-review').textContent = '';
   document.getElementById('m-score').textContent = '—';
   document.getElementById('m-verdict').textContent = '—';
   document.getElementById('m-candidates').textContent = '—';

@@ -1131,8 +1131,17 @@ def _node_summary(node: str, update: dict) -> dict:
             return {"score": j.get("grounding_score"), "verdict": j.get("verdict")}
         case "portfolio_manager":
             pr = update.get("portfolio_result", {})
-            trades = [t for t in pr.get("trades", []) if t.get("action") in ("BUY", "SELL")]
-            return {"trades": len(trades)}
+            pu = pr.get("portfolio_update", {})
+            trades = pr.get("trades", [])
+            active = [t for t in trades if t.get("action") in ("BUY", "SELL")]
+            return {
+                "trades": len(active),
+                "trades_detail": trades,
+                "cash_before": pu.get("cash_before"),
+                "cash_after": pu.get("cash_after"),
+                "positions_after": pu.get("positions_after", []),
+                "review": pr.get("review", ""),
+            }
         case _:
             return {}
 
