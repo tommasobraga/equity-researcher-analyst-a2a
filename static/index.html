@@ -1,0 +1,965 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Equity Researcher A2A</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:      #111111;
+  --bg2:     #1c1c1c;
+  --bg3:     #252525;
+  --border:  #3a3a3a;
+  --text:    #e4e4e4;
+  --text-dim:#909090;
+  --accent:  #29b6f6;
+  --green:   #4caf50;
+  --yellow:  #fdd835;
+  --red:     #ef5350;
+  --purple:  #ce93d8;
+  --font: 'Consolas', 'Courier New', monospace;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 13px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* ── Header ─────────────────────────────────────────────── */
+.header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+.header h1 {
+  font-size: 13px;
+  font-weight: bold;
+  color: var(--accent);
+  letter-spacing: 1px;
+  white-space: nowrap;
+}
+
+.header-sep { color: var(--text-dim); }
+
+.ctrl-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ctrl-group label { color: var(--text-dim); font-size: 11px; }
+
+/* Protocol badges */
+.proto-badges {
+  display: flex;
+  gap: 5px;
+  align-items: center;
+  flex-shrink: 0;
+}
+.proto-badge {
+  border-radius: 3px;
+  padding: 2px 7px;
+  font-size: 10px;
+  font-weight: bold;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+}
+.proto-badge.core    { background: #0d2b3e; border: 1px solid #1565c0; color: #64b5f6; }
+.proto-badge.pattern { background: #1e0d33; border: 1px solid #6a1b9a; color: var(--purple); }
+.proto-badge.infra   { background: #2a2a2a; border: 1px solid #505050; color: #b0b0b0; }
+
+input[type="text"], select {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 12px;
+  padding: 4px 8px;
+  border-radius: 3px;
+  outline: none;
+}
+input[type="text"]:focus, select:focus { border-color: var(--accent); }
+input[type="text"]#tickers { width: 160px; }
+input[type="text"]#prompt  { width: 240px; }
+select#mode { width: 90px; }
+
+#run-btn {
+  background: var(--accent);
+  color: #000;
+  border: none;
+  font-family: var(--font);
+  font-size: 12px;
+  font-weight: bold;
+  padding: 5px 16px;
+  border-radius: 3px;
+  cursor: pointer;
+  letter-spacing: 1px;
+  margin-left: 4px;
+}
+#run-btn:hover { background: #33bbff; }
+#run-btn:disabled { background: var(--border); color: var(--text-dim); cursor: not-allowed; }
+
+#run-id-badge {
+  margin-left: auto;
+  font-size: 10px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+/* ── Main grid ───────────────────────────────────────────── */
+.main-grid {
+  display: grid;
+  grid-template-columns: 320px 1fr;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+/* ── Pipeline panel (left) ───────────────────────────────── */
+.pipeline-panel {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  padding: 12px 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow-y: auto;
+  gap: 0;
+}
+
+.panel-title {
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  align-self: flex-start;
+}
+
+.pipeline-flow {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+}
+
+.node {
+  width: 240px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 7px 12px;
+  text-align: center;
+  font-size: 12px;
+  background: var(--bg3);
+  color: var(--text-dim);
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.node .node-label { font-weight: bold; }
+.node .node-detail { font-size: 10px; color: #707070; margin-top: 2px; min-height: 14px; }
+
+.node[data-state="working"] {
+  border-color: var(--yellow);
+  background: #252000;
+  color: var(--yellow);
+  animation: pulse 1.2s ease-in-out infinite;
+}
+.node[data-state="working"] .node-detail { color: #a09000; }
+
+.node[data-state="completed"] {
+  border-color: #388e3c;
+  background: #0d1f0d;
+  color: var(--green);
+}
+.node[data-state="completed"] .node-detail { color: #2e7d32; }
+
+.node[data-state="failed"] {
+  border-color: #c62828;
+  background: #1f0d0d;
+  color: var(--red);
+}
+
+.node[data-state="skipped"] {
+  opacity: 0.3;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.55; }
+}
+
+.arrow {
+  width: 1px;
+  height: 14px;
+  background: var(--border);
+  margin: 0 auto;
+}
+
+/* Parallel fan-out wrapper */
+.parallel-row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+  width: 100%;
+}
+.parallel-row .node { width: 68px; font-size: 10px; padding: 5px 4px; }
+.parallel-row .node .node-detail { display: none; }
+
+.parallel-label {
+  font-size: 9px;
+  color: var(--text-dim);
+  text-align: center;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
+
+.fan-line {
+  width: 100%;
+  height: 10px;
+  position: relative;
+}
+.fan-line::before {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 1px;
+  height: 100%;
+  background: var(--border);
+}
+
+/* ── Right panels ────────────────────────────────────────── */
+.right-panels {
+  display: grid;
+  grid-template-rows: 1fr 180px 120px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel {
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.panel-header {
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  padding: 5px 12px;
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  flex-shrink: 0;
+}
+
+.panel-body {
+  padding: 6px 12px;
+  overflow-y: auto;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Event log */
+#log-entries { display: flex; flex-direction: column; gap: 2px; }
+
+.log-entry {
+  display: flex;
+  gap: 8px;
+  font-size: 11px;
+  padding: 1px 0;
+}
+.log-entry .ts { color: var(--text-dim); flex-shrink: 0; }
+.log-entry .icon { flex-shrink: 0; width: 14px; text-align: center; }
+.log-entry .msg { color: var(--text); }
+.log-entry.type-node_started    .msg { color: var(--yellow); }
+.log-entry.type-node_completed  .msg { color: var(--green); }
+.log-entry.type-node_failed     .msg { color: var(--red); }
+.log-entry.type-guardrail       .msg { color: #ff9900; }
+.log-entry.type-pipeline_completed .msg { color: var(--accent); font-weight: bold; }
+.log-entry.type-error           .msg { color: var(--red); font-weight: bold; }
+.log-entry.type-health_check.ok .msg { color: var(--green); }
+.log-entry.type-health_check.ko .msg { color: var(--red); }
+
+/* Guardrail panel */
+#guardrail-entries { display: flex; flex-direction: column; gap: 4px; }
+
+.guardrail-entry {
+  background: var(--bg3);
+  border-left: 3px solid #555;
+  padding: 5px 8px;
+  font-size: 11px;
+  border-radius: 0 3px 3px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.guardrail-entry.cat-degraded { border-left-color: #e65100; }
+.guardrail-entry.cat-security { border-left-color: #c62828; }
+.guardrail-entry.cat-quality  { border-left-color: #827717; }
+.guardrail-entry.cat-blocked  { border-left-color: #880e4f; }
+.guardrail-entry.cat-health   { border-left-color: #01579b; }
+
+.g-header { display: flex; align-items: center; gap: 6px; }
+
+.g-badge {
+  font-size: 9px;
+  font-weight: bold;
+  padding: 1px 5px;
+  border-radius: 2px;
+  flex-shrink: 0;
+}
+.cat-degraded .g-badge { background: #2a1000; border: 1px solid #e65100; color: #ff9800; }
+.cat-security .g-badge { background: #2a0000; border: 1px solid #c62828; color: #ef9a9a; }
+.cat-quality  .g-badge { background: #1a1a00; border: 1px solid #827717; color: #fff176; }
+.cat-blocked  .g-badge { background: #2a0015; border: 1px solid #880e4f; color: #f48fb1; }
+.cat-health   .g-badge { background: #00111a; border: 1px solid #01579b; color: #81d4fa; }
+
+.g-source { font-weight: bold; color: var(--text); font-size: 11px; }
+.g-reason { color: var(--text-dim); font-size: 10px; line-height: 1.4; }
+
+/* Metrics panel */
+#metrics-panel .panel-body {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 16px;
+  align-content: start;
+}
+
+.metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.metric-label { font-size: 9px; color: var(--text-dim); text-transform: uppercase; letter-spacing: 1px; }
+.metric-value { font-size: 14px; font-weight: bold; color: var(--text); }
+.metric-value.green { color: var(--green); }
+.metric-value.yellow { color: var(--yellow); }
+.metric-value.red { color: var(--red); }
+
+.score-bar-wrap { grid-column: 1 / -1; }
+.score-bar {
+  height: 8px;
+  background: var(--border);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+.score-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  width: 0%;
+  transition: width 0.6s ease;
+  background: linear-gradient(to right, #ff4444, #ffd700, #00cc44);
+  /* clip the gradient to show only up to current score */
+}
+
+/* ── Report section ──────────────────────────────────────── */
+.report-section {
+  display: none;
+  border-top: 1px solid var(--border);
+  background: var(--bg2);
+  flex-shrink: 0;
+}
+
+.report-toggle {
+  width: 100%;
+  background: none;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  padding: 7px 16px;
+  text-align: left;
+  font-family: var(--font);
+  font-size: 10px;
+  color: var(--text-dim);
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  justify-content: space-between;
+}
+.report-toggle:hover { background: var(--bg3); color: var(--text); }
+
+.report-body {
+  padding: 12px 16px;
+  max-height: 220px;
+  overflow-y: auto;
+  display: none;
+}
+.report-body.open { display: block; }
+
+.report-body pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--text);
+}
+
+.report-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.btn-secondary {
+  background: var(--bg3);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 11px;
+  padding: 4px 12px;
+  border-radius: 3px;
+  cursor: pointer;
+  text-decoration: none;
+}
+.btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Health dot in header */
+.health-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  margin-right: 3px;
+  vertical-align: middle;
+}
+.health-dot.ok { background: var(--green); }
+.health-dot.ko { background: var(--red); }
+
+#agent-health {
+  display: flex;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-dim);
+  align-items: center;
+  flex-wrap: wrap;
+  margin-left: 4px;
+}
+.health-badge { display: flex; align-items: center; gap: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── Header ──────────────────────────────────────────────── -->
+<header class="header">
+  <h1>EQUITY RESEARCHER A2A</h1>
+  <span class="header-sep">|</span>
+
+  <div class="proto-badges">
+    <span class="proto-badge core">A2A</span>
+    <span class="proto-badge core">JSON-RPC 2.0</span>
+    <span class="proto-badge pattern">ReAct</span>
+    <span class="proto-badge pattern">LangGraph</span>
+    <span class="proto-badge infra">SSE</span>
+    <span class="proto-badge infra">HMAC-SHA256</span>
+  </div>
+  <span class="header-sep">|</span>
+
+  <div class="ctrl-group">
+    <label>TICKERS</label>
+    <input type="text" id="tickers" placeholder="AAPL MSFT UCG.MI" title="Separati da spazio, opzionale">
+  </div>
+
+  <div class="ctrl-group">
+    <label>MODE</label>
+    <select id="mode">
+      <option value="analyze">analyze</option>
+      <option value="full" selected>full</option>
+      <option value="portfolio">portfolio</option>
+    </select>
+  </div>
+
+  <div class="ctrl-group">
+    <label>PROMPT</label>
+    <input type="text" id="prompt" placeholder="es. Analizza AI europee con orizzonte 3 mesi">
+  </div>
+
+  <button id="run-btn" onclick="runPipeline()">RUN</button>
+
+  <div id="agent-health"></div>
+  <div id="run-id-badge"></div>
+</header>
+
+<!-- ── Main grid ───────────────────────────────────────────── -->
+<div class="main-grid">
+
+  <!-- Pipeline diagram (left) -->
+  <aside class="pipeline-panel">
+    <div class="panel-title">Pipeline</div>
+    <div class="pipeline-flow">
+
+      <div class="node" id="node-task_decomposer" data-state="pending">
+        <div class="node-label">TaskDecomposer</div>
+        <div class="node-detail" id="det-task_decomposer">—</div>
+      </div>
+
+      <div class="arrow"></div>
+      <div class="fan-line"></div>
+      <div class="parallel-label">parallel fan-out</div>
+
+      <div class="parallel-row">
+        <div class="node" id="node-data_collector" data-state="pending">
+          <div class="node-label">DC</div>
+        </div>
+        <div class="node" id="node-news_sentiment" data-state="pending">
+          <div class="node-label">NS</div>
+        </div>
+        <div class="node" id="node-rag_retriever" data-state="pending">
+          <div class="node-label">RAG</div>
+        </div>
+      </div>
+
+      <div class="parallel-label">fan-in</div>
+      <div class="fan-line"></div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-fundamental_analyst" data-state="pending">
+        <div class="node-label">FundamentalAnalyst</div>
+        <div class="node-detail" id="det-fundamental_analyst">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-risk_assessor" data-state="pending">
+        <div class="node-label">RiskAssessor</div>
+        <div class="node-detail" id="det-risk_assessor">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-report_writer" data-state="pending">
+        <div class="node-label">ReportWriter</div>
+        <div class="node-detail" id="det-report_writer">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-llm_judge" data-state="pending">
+        <div class="node-label">LLMJudge</div>
+        <div class="node-detail" id="det-llm_judge">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-portfolio_loader" data-state="pending">
+        <div class="node-label">PortfolioLoader</div>
+        <div class="node-detail" id="det-portfolio_loader">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-portfolio_manager" data-state="pending">
+        <div class="node-label">PortfolioManager</div>
+        <div class="node-detail" id="det-portfolio_manager">—</div>
+      </div>
+      <div class="arrow"></div>
+
+      <div class="node" id="node-memory_writer" data-state="pending">
+        <div class="node-label">MemoryWriter</div>
+        <div class="node-detail" id="det-memory_writer">—</div>
+      </div>
+
+    </div>
+  </aside>
+
+  <!-- Right panels -->
+  <div class="right-panels">
+
+    <!-- Event log -->
+    <div class="panel" id="log-panel">
+      <div class="panel-header">Live Event Log</div>
+      <div class="panel-body">
+        <div id="log-entries"></div>
+      </div>
+    </div>
+
+    <!-- Guardrail panel -->
+    <div class="panel" id="guardrail-panel">
+      <div class="panel-header">Guardrail Panel</div>
+      <div class="panel-body">
+        <div id="guardrail-entries"><span style="color:var(--text-dim);font-size:11px">Nessun evento — avvia la pipeline.</span></div>
+      </div>
+    </div>
+
+    <!-- Metrics -->
+    <div class="panel" id="metrics-panel">
+      <div class="panel-header">Grounding &amp; Metrics</div>
+      <div class="panel-body">
+        <div class="metric">
+          <span class="metric-label">Grounding score</span>
+          <span class="metric-value" id="m-score">—</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">LLM Judge</span>
+          <span class="metric-value" id="m-verdict">—</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Candidates</span>
+          <span class="metric-value" id="m-candidates">—</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Latency</span>
+          <span class="metric-value" id="m-latency">—</span>
+        </div>
+        <div class="score-bar-wrap">
+          <div class="score-bar"><div class="score-bar-fill" id="score-bar-fill"></div></div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Report section ─────────────────────────────────────── -->
+<div class="report-section" id="report-section">
+  <button class="report-toggle" onclick="toggleReport(this)">
+    <span>Report &amp; Executive Summary</span>
+    <span id="report-toggle-icon">▼ espandi</span>
+  </button>
+  <div class="report-body" id="report-body">
+    <pre id="report-text"></pre>
+    <div class="report-actions">
+      <a id="report-link" class="btn-secondary" href="#" target="_blank" style="display:none">Apri report HTML</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Utilities ───────────────────────────────────────────────
+function fmtTime(isoTs) {
+  try {
+    const d = new Date(isoTs);
+    return d.toLocaleTimeString('it-IT', {hour12: false});
+  } catch { return ''; }
+}
+
+function setNodeState(node, state, detail) {
+  const el = document.getElementById('node-' + node);
+  if (!el) return;
+  el.dataset.state = state;
+  if (detail !== undefined) {
+    const det = document.getElementById('det-' + node);
+    if (det) det.textContent = detail || '—';
+  }
+}
+
+function resetNodes() {
+  document.querySelectorAll('.node').forEach(n => {
+    n.dataset.state = 'pending';
+    const det = n.querySelector('.node-detail');
+    if (det) det.textContent = '—';
+  });
+}
+
+function addLog(cls, icon, msg, ts) {
+  const el = document.createElement('div');
+  el.className = 'log-entry ' + cls;
+  el.innerHTML = `<span class="ts">${fmtTime(ts)}</span><span class="icon">${icon}</span><span class="msg">${msg}</span>`;
+  const container = document.getElementById('log-entries');
+  container.appendChild(el);
+  container.parentElement.scrollTop = container.parentElement.scrollHeight;
+}
+
+const CATEGORY_LABELS = {
+  degraded: 'DEGRADED',
+  security: 'SECURITY',
+  quality:  'QUALITY',
+  blocked:  'BLOCKED',
+  health:   'HEALTH',
+};
+
+function addGuardrail(source, reason, category) {
+  const cat = category || 'degraded';
+  const container = document.getElementById('guardrail-entries');
+  const ph = container.querySelector(':scope > span');
+  if (ph) ph.remove();
+  const el = document.createElement('div');
+  el.className = `guardrail-entry cat-${cat}`;
+  el.innerHTML = `
+    <div class="g-header">
+      <span class="g-badge">${CATEGORY_LABELS[cat] || cat.toUpperCase()}</span>
+      <span class="g-source">${source}</span>
+    </div>
+    <div class="g-reason">${reason}</div>`;
+  container.appendChild(el);
+  container.parentElement.scrollTop = container.parentElement.scrollHeight;
+}
+
+function updateScore(score) {
+  const mv = document.getElementById('m-score');
+  const bar = document.getElementById('score-bar-fill');
+  mv.textContent = score !== null && score !== undefined ? score + '/100' : '—';
+  const pct = score !== null && score !== undefined ? Math.max(0, Math.min(100, score)) : 0;
+  // Show the right portion of the gradient
+  bar.style.width = pct + '%';
+  if (score >= 70) mv.className = 'metric-value green';
+  else if (score >= 40) mv.className = 'metric-value yellow';
+  else mv.className = 'metric-value red';
+}
+
+function updateVerdict(verdict) {
+  const mv = document.getElementById('m-verdict');
+  mv.textContent = verdict || '—';
+  if (verdict === 'PASS') mv.className = 'metric-value green';
+  else if (verdict === 'WARN') mv.className = 'metric-value yellow';
+  else if (verdict === 'FAIL') mv.className = 'metric-value red';
+  else mv.className = 'metric-value';
+}
+
+function toggleReport(btn) {
+  const body = document.getElementById('report-body');
+  const icon = document.getElementById('report-toggle-icon');
+  const open = body.classList.toggle('open');
+  icon.textContent = open ? '▲ comprimi' : '▼ espandi';
+}
+
+// Node labels for display
+const NODE_LABELS = {
+  task_decomposer:     'TaskDecomposer',
+  data_collector:      'DataCollector',
+  news_sentiment:      'NewsSentiment',
+  rag_retriever:       'RAGRetriever',
+  gate_fundamental_analyst: 'Gate/FA',
+  fundamental_analyst: 'FundamentalAnalyst',
+  gate_risk_assessor:  'Gate/RA',
+  risk_assessor:       'RiskAssessor',
+  gate_report_writer:  'Gate/RW',
+  report_writer:       'ReportWriter',
+  llm_judge:           'LLMJudge',
+  portfolio_loader:    'PortfolioLoader',
+  portfolio_manager:   'PortfolioManager',
+  memory_writer:       'MemoryWriter',
+};
+
+function nodeLabel(node) { return NODE_LABELS[node] || node; }
+
+// ── Event handler ───────────────────────────────────────────
+function handleEvent(ev) {
+  switch (ev.type) {
+
+    case 'pipeline_started':
+      document.getElementById('run-id-badge').textContent = 'run: ' + ev.run_id.slice(0, 8);
+      addLog('type-pipeline_started', '▶', `Pipeline avviata — mode: ${ev.mode}  tickers: ${ev.tickers.join(', ') || 'news-driven'}`, ev.ts);
+      // grey-out portfolio nodes if mode=analyze
+      if (ev.mode === 'analyze') {
+        ['portfolio_loader', 'portfolio_manager'].forEach(n => setNodeState(n, 'skipped'));
+      }
+      break;
+
+    case 'health_check': {
+      const ok = ev.status === 'ok';
+      const hc = document.getElementById('agent-health');
+      const b = document.createElement('div');
+      b.className = 'health-badge';
+      b.innerHTML = `<span class="health-dot ${ok ? 'ok' : 'ko'}"></span><span>${ev.agent.replace('_', ' ')}</span>`;
+      hc.appendChild(b);
+      addLog('type-health_check ' + (ok ? 'ok' : 'ko'), ok ? '●' : '●',
+             `${ev.agent}: ${ev.status}`, ev.ts);
+      if (!ok) addGuardrail(ev.agent, `agente non raggiungibile — verificare che sia avviato`, 'health');
+      break;
+    }
+
+    case 'node_started':
+      setNodeState(ev.node, 'working');
+      addLog('type-node_started', '⟳', `${nodeLabel(ev.node)} — working...`, ev.ts);
+      break;
+
+    case 'node_completed': {
+      const d = ev.data || {};
+      let detail = '';
+      switch (ev.node) {
+        case 'task_decomposer':
+          detail = d.intent ? `${d.intent} — ${d.focus}` : '';
+          break;
+        case 'data_collector':
+          detail = d.count !== undefined ? `${d.count} ticker(s) fetched` : '';
+          break;
+        case 'news_sentiment':
+          detail = `${d.news || 0} news, ${d.themes || 0} themes` +
+                   (d.redacted ? `, ${d.redacted} redacted` : '');
+          break;
+        case 'rag_retriever':
+          detail = `${d.chunks || 0} chunk(s)`;
+          break;
+        case 'fundamental_analyst':
+          detail = `${d.candidates || 0} candidate(s)`;
+          break;
+        case 'risk_assessor':
+          detail = `${d.assessments || 0} assessment(s)`;
+          break;
+        case 'report_writer':
+          detail = d.qa ? `QA: ${d.qa}` : '';
+          break;
+        case 'llm_judge':
+          if (d.score !== null && d.score !== undefined) {
+            updateScore(d.score);
+            updateVerdict(d.verdict);
+            detail = `${d.verdict} — ${d.score}/100`;
+          }
+          break;
+        case 'portfolio_manager':
+          detail = d.trades !== undefined ? `${d.trades} trade(s)` : '';
+          break;
+      }
+      setNodeState(ev.node, 'completed', detail);
+      addLog('type-node_completed', '✓',
+             `${nodeLabel(ev.node)} completed${detail ? ' — ' + detail : ''}`, ev.ts);
+      break;
+    }
+
+    case 'node_failed':
+      setNodeState(ev.node, 'failed');
+      addLog('type-node_failed', '✗', `${nodeLabel(ev.node)} FAILED: ${ev.error || ''}`, ev.ts);
+      break;
+
+    case 'guardrail':
+      addGuardrail(ev.source, ev.reason, ev.category);
+      addLog('type-guardrail', '⚠', `[${(ev.category || 'guardrail').toUpperCase()}] ${ev.source} — ${ev.reason}`, ev.ts);
+      break;
+
+    case 'pipeline_completed': {
+      const m = ev.metrics || {};
+      document.getElementById('m-candidates').textContent =
+        m.candidates !== undefined ? m.candidates : '—';
+      document.getElementById('m-latency').textContent =
+        m.latency_s !== undefined ? m.latency_s + 's' : '—';
+
+      if (m.grounding_score !== null && m.grounding_score !== undefined) {
+        updateScore(m.grounding_score);
+        updateVerdict(m.verdict);
+      }
+
+      addLog('type-pipeline_completed', '★',
+             `Pipeline completata — ${m.latency_s}s, candidates: ${m.candidates}, score: ${m.grounding_score}/100`,
+             ev.ts);
+
+      // Show report section
+      const rs = document.getElementById('report-section');
+      rs.style.display = 'block';
+      const rt = document.getElementById('report-text');
+      let reportText = '';
+      if (ev.executive_summary) reportText += '=== SINTESI ESECUTIVA ===\n\n' + ev.executive_summary;
+      if (ev.qa_verdict) reportText += '\n\n=== QA VERDICT ===\n\n' + ev.qa_verdict;
+      rt.textContent = reportText || '(nessuna sintesi disponibile)';
+
+      if (ev.report_path) {
+        const link = document.getElementById('report-link');
+        link.style.display = '';
+        const filename = ev.report_path.split(/[\\/]/).pop();
+        link.href = '/report/' + filename;
+        link.textContent = 'Apri report HTML';
+      }
+
+      document.getElementById('run-btn').disabled = false;
+      break;
+    }
+
+    case 'error':
+      addLog('type-error', '✗', `ERRORE: ${ev.message}`, new Date().toISOString());
+      document.getElementById('run-btn').disabled = false;
+      break;
+  }
+}
+
+// ── SSE client ──────────────────────────────────────────────
+async function runPipeline() {
+  const tickerRaw = document.getElementById('tickers').value.trim();
+  const tickers = tickerRaw ? tickerRaw.toUpperCase().split(/\s+/) : [];
+  const mode = document.getElementById('mode').value;
+  const prompt = document.getElementById('prompt').value.trim();
+
+  // Reset UI
+  document.getElementById('log-entries').innerHTML = '';
+  document.getElementById('guardrail-entries').innerHTML =
+    '<span style="color:var(--text-dim);font-size:11px">In attesa di eventi...</span>';
+  document.getElementById('agent-health').innerHTML = '';
+  document.getElementById('run-id-badge').textContent = '';
+  document.getElementById('report-section').style.display = 'none';
+  document.getElementById('m-score').textContent = '—';
+  document.getElementById('m-verdict').textContent = '—';
+  document.getElementById('m-candidates').textContent = '—';
+  document.getElementById('m-latency').textContent = '—';
+  document.getElementById('score-bar-fill').style.width = '0%';
+  document.getElementById('m-score').className = 'metric-value';
+  document.getElementById('m-verdict').className = 'metric-value';
+  resetNodes();
+
+  const btn = document.getElementById('run-btn');
+  btn.disabled = true;
+
+  const body = { tickers, mode };
+  if (prompt) body.prompt = prompt;
+
+  let resp;
+  try {
+    resp = await fetch('/research/stream', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+  } catch (err) {
+    addLog('type-error', '✗', 'Connessione fallita — orchestrator in esecuzione?', new Date().toISOString());
+    btn.disabled = false;
+    return;
+  }
+
+  if (!resp.ok) {
+    const text = await resp.text();
+    addLog('type-error', '✗', `HTTP ${resp.status}: ${text}`, new Date().toISOString());
+    btn.disabled = false;
+    return;
+  }
+
+  const reader = resp.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const parts = buffer.split('\n\n');
+      buffer = parts.pop();
+      for (const part of parts) {
+        const line = part.trim();
+        if (line.startsWith('data: ')) {
+          try {
+            const ev = JSON.parse(line.slice(6));
+            handleEvent(ev);
+          } catch (e) {
+            console.warn('Evento non parsabile:', line, e);
+          }
+        }
+      }
+    }
+  } catch (err) {
+    addLog('type-error', '✗', 'Stream interrotto: ' + err.message, new Date().toISOString());
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+// Allow Enter to submit
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !document.getElementById('run-btn').disabled) {
+    runPipeline();
+  }
+});
+</script>
+</body>
+</html>

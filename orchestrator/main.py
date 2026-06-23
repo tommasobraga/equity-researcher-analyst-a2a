@@ -18,6 +18,7 @@ Phase 3: structured retry (tenacity), custom circuit breaker,
          payload windowing.
 """
 import asyncio
+import datetime
 import json
 import os
 import re
@@ -25,6 +26,7 @@ import sys
 import time
 import uuid
 import webbrowser
+from collections.abc import AsyncIterator
 from pathlib import Path
 from typing import Annotated, Any, TypedDict
 
@@ -41,6 +43,10 @@ from tenacity import (
 )
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
+
+# Ensure UTF-8 stdout on Windows (cp1252 default rejects ← → used in print statements)
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 from shared.a2a_models import A2ATaskResult, JsonRpcRequest, JsonRpcResponse
 from shared.demo import is_demo_mode
@@ -90,6 +96,8 @@ _RATE_LIMIT_PATTERN = re.compile(
     r"\b(rate.?limit|too many requests|concurrent connections|overloaded|529)\b",
     re.IGNORECASE,
 )
+
+_SKIP_NODES = {"router"}  # nodi interni di routing, non visibili nella UI
 
 
 # ------------------------------------------------------------------ #
@@ -1028,6 +1036,243 @@ async def run_pipeline(
         result["portfolio_result"] = final_state.get("portfolio_result", {})
 
     return result
+
+
+# ------------------------------------------------------------------ #
+# Streaming pipeline — SSE / Web UI                                    #
+# ------------------------------------------------------------------ #
+
+def _now() -> str:
+    return datetime.datetime.now(datetime.timezone.utc).isoformat()
+
+
+_NODE_LABELS: dict[str, str] = {
+    "data_collector":           "DataCollector",
+    "news_sentiment":           "NewsSentiment",
+    "rag_retriever":            "RAGRetriever",
+    "fundamental_analyst":      "FundamentalAnalyst",
+    "risk_assessor":            "RiskAssessor",
+    "report_writer":            "ReportWriter",
+    "gate_fundamental_analyst": "FundamentalAnalyst gate",
+    "gate_risk_assessor":       "RiskAssessor gate",
+    "gate_report_writer":       "ReportWriter gate",
+    "llm_judge":                "LLM Judge",
+    "portfolio_manager":        "PortfolioManager",
+    "memory_writer":            "MemoryWriter",
+    "sanitize_rss_item":        "Sanitizer RSS",
+}
+
+
+def _guardrail_event(source: str, key: str, reason: str) -> dict:
+    """Produce un guardrail event con categoria e messaggi human-readable."""
+    readable_source = _NODE_LABELS.get(source, source)
+
+    # Categorizzo il tipo di evento
+    if "redact" in key or "inject" in reason.lower():
+        category = "security"
+        readable_reason = reason
+    elif "blocked" in key:
+        category = "blocked"
+        readable_reason = reason
+    elif "warning" in key or "warning" in reason.lower():
+        n = reason.split()[0] if reason[0].isdigit() else ""
+        category = "quality"
+        readable_reason = f"{n} quality warning nel report — rivedi i candidati" if n else reason
+    elif "llm_judge" in key:
+        category = "quality"
+        readable_reason = reason
+    else:
+        category = "degraded"
+        if "HTTP 500" in reason or "HTTP 503" in reason or "HTTP 502" in reason:
+            readable_reason = "agente non raggiungibile — pipeline continua in modalità degraded"
+        elif "connection refused" in reason:
+            readable_reason = "connessione rifiutata — agente non avviato"
+        elif "timeout" in reason.lower():
+            readable_reason = "timeout — pipeline continua in modalità degraded"
+        elif "circuit breaker" in reason.lower():
+            readable_reason = "circuit breaker aperto — agente escluso temporaneamente"
+        elif "No data for" in reason:
+            readable_reason = f"dati parziali — {reason}"
+        else:
+            readable_reason = reason
+
+    return {
+        "type": "guardrail",
+        "source": readable_source,
+        "key": key,
+        "reason": readable_reason,
+        "category": category,
+        "ts": _now(),
+    }
+
+
+def _node_summary(node: str, update: dict) -> dict:
+    """Estrae metriche human-readable dall'update di stato di un nodo."""
+    match node:
+        case "task_decomposer":
+            td = update.get("task_decomposition", {})
+            return {"intent": td.get("intent", ""), "focus": td.get("research_focus", "")[:60]}
+        case "data_collector":
+            return {"count": len(update.get("fundamentals", []))}
+        case "news_sentiment":
+            news = update.get("news", [])
+            redacted = sum(1 for n in news if "[REDACTED]" in str(n))
+            return {"news": len(news), "themes": len(update.get("themes", [])), "redacted": redacted}
+        case "rag_retriever":
+            ctx = update.get("rag_context", "")
+            return {"chunks": ctx.count("[Source:") if ctx else 0}
+        case "fundamental_analyst":
+            return {"candidates": len(update.get("candidates", []))}
+        case "risk_assessor":
+            return {"assessments": len(update.get("risk_assessment", []))}
+        case "report_writer":
+            return {"qa": update.get("qa_verdict", "")}
+        case "llm_judge":
+            j = update.get("judgment", {})
+            return {"score": j.get("grounding_score"), "verdict": j.get("verdict")}
+        case "portfolio_manager":
+            pr = update.get("portfolio_result", {})
+            trades = [t for t in pr.get("trades", []) if t.get("action") in ("BUY", "SELL")]
+            return {"trades": len(trades)}
+        case _:
+            return {}
+
+
+async def stream_pipeline(
+    tickers: list[str] | None = None,
+    mode: str = "full",
+    prompt: str | None = None,
+) -> AsyncIterator[dict]:
+    """Async generator — emette eventi SSE per ogni nodo del grafo LangGraph.
+
+    Tipi di evento:
+      pipeline_started   — run_id, mode, tickers
+      health_check       — status per ogni agente richiesto dalla mode
+      node_started       — nodo inizia (da LangGraph debug task event)
+      node_completed     — nodo completato + summary data
+      guardrail          — nuova entry in degraded dict o item RSS redatto
+      pipeline_completed — metriche finali + executive_summary
+      error              — eccezione fatale
+    """
+    if tickers:
+        errors = validate_tickers(tickers)
+        if errors:
+            raise ValueError("Ticker validation failed:\n" + "\n".join(f"  • {e}" for e in errors))
+
+    run_id = str(uuid.uuid4())
+    t0 = time.time()
+
+    initial_state: PipelineState = {
+        "run_id": run_id,
+        "mode": mode,
+        "tickers": tickers or [],
+        "interactive": False,
+        "fundamentals": [],
+        "news": [],
+        "themes": [],
+        "candidates": [],
+        "risk_assessment": [],
+        "report": {},
+        "executive_summary": "",
+        "qa_verdict": "",
+        "degraded": {},
+        "portfolio_state": {},
+        "portfolio_result": {},
+        "rag_context": "",
+        "judgment": {},
+        "ticker_history": {},
+        "previous_runs": [],
+        "retry_counts": {},
+        "gate_feedback": {},
+        "user_prompt": prompt or "",
+        "task_decomposition": {},
+    }
+
+    yield {"type": "pipeline_started", "run_id": run_id, "mode": mode,
+           "tickers": tickers or [], "ts": _now()}
+
+    health = await check_agents_health(mode=mode)
+    for agent_name, status in health["agents"].items():
+        yield {"type": "health_check", "agent": agent_name,
+               "status": status["status"], "ts": _now()}
+
+    prev_degraded: dict = {}
+    final_state: dict = {}
+
+    config = {"configurable": {"thread_id": run_id}}
+    Path("output").mkdir(exist_ok=True)
+
+    async with AsyncSqliteSaver.from_conn_string("output/checkpoints.db") as checkpointer:
+        graph = _build_graph_builder().compile(checkpointer=checkpointer)
+
+        async for chunk in graph.astream(initial_state, config=config, stream_mode="debug"):
+            ctype = chunk.get("type")
+
+            if ctype == "task":
+                node = chunk["payload"]["name"]
+                if node not in _SKIP_NODES:
+                    yield {"type": "node_started", "node": node, "ts": _now()}
+
+            elif ctype == "task_result":
+                node = chunk["payload"]["name"]
+                # result è lista di (channel, value) pairs — raw output del nodo, pre-reducer
+                update = dict(chunk["payload"].get("result") or [])
+
+                if node not in _SKIP_NODES:
+                    yield {"type": "node_completed", "node": node,
+                           "ts": _now(), "data": _node_summary(node, update)}
+
+                # Guardrail: nuove entry nel degraded dict
+                curr_degraded = update.get("degraded", {})
+                for key, reason in curr_degraded.items():
+                    if key not in prev_degraded:
+                        yield _guardrail_event(node, key, str(reason))
+                prev_degraded.update(curr_degraded)
+
+                # Guardrail: RSS items redatti da sanitize_rss_item
+                if node == "news_sentiment":
+                    news = update.get("news", [])
+                    n_redacted = sum(1 for n in news if "[REDACTED]" in str(n))
+                    if n_redacted:
+                        yield _guardrail_event(
+                            "sanitize_rss_item", "redacted_items",
+                            f"{n_redacted} RSS item(s) redatti — injection detected",
+                        )
+
+                final_state.update(update)
+
+    execution_seconds = int(time.time() - t0)
+    report_path = None
+    if mode in ("analyze", "full"):
+        try:
+            report_path, _ = generate_html(
+                executive_summary=final_state.get("executive_summary", ""),
+                report_dict=final_state.get("report", {}),
+                qa_verdict=final_state.get("qa_verdict", ""),
+                tickers=tickers or [],
+                execution_seconds=execution_seconds,
+                run_id=run_id,
+                judgment=final_state.get("judgment"),
+            )
+        except Exception as exc:
+            log.warning("stream.report_gen_failed", error=str(exc))
+
+    j = final_state.get("judgment", {})
+    yield {
+        "type": "pipeline_completed",
+        "run_id": run_id,
+        "ts": _now(),
+        "metrics": {
+            "latency_s": execution_seconds,
+            "candidates": len(final_state.get("candidates", [])),
+            "grounding_score": j.get("grounding_score"),
+            "verdict": j.get("verdict"),
+            "degraded": list(prev_degraded.keys()),
+        },
+        "executive_summary": final_state.get("executive_summary", ""),
+        "qa_verdict": final_state.get("qa_verdict", ""),
+        "report_path": str(report_path) if report_path else None,
+    }
 
 
 # ------------------------------------------------------------------ #
