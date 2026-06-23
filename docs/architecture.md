@@ -105,7 +105,7 @@ run_pipeline(prompt="Analizza opportunità AI europee con orizzonte 3 mesi")
         horizon_weeks: 12,
         constraints: ["EU only"]
       }
-    → iniettato in: NewsSentiment (topic RSS), FundamentalAnalyst (istruzione), ReportWriter (user_prompt)
+    → iniettato in: NewsSentiment (topic RSS), FundamentalAnalyst (istruzione), RiskAssessor (horizon_weeks), ReportWriter (user_prompt)
 ```
 
 ### Extended thinking
@@ -262,4 +262,4 @@ graph TB
 | Validation Gates | 3 hard gate nodes in graph (FA · RA · RW); soft gates (DC · NS) inlined in agent nodes to preserve AND-join fan-in | Extend retry budget or add fallback agents in Phase 5 |
 | DataCollector | soft fail — errors recorded in `degraded`, pipeline continues | Restore hard fail in Phase 5 when certified data provider is integrated |
 | Guardrails | A (ticker validation) · B (Pydantic schema on ReportWriter output) · C (judge score threshold) | Adversarial test suite: 171 tests. Tutti i gap del red team giugno 2026 chiusi. `TestKnownGapsNotBlocked` vuota. |
-| Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; no-op if prompt absent | Wire `horizon_weeks` in RiskAssessor; extend intent set |
+| Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; `horizon_weeks` passato a RiskAssessor per calibrare `fit_orizzonte`; no-op if prompt absent | Extend intent set (pending Bedrock — non verificabile in DEMO_MODE) |

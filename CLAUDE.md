@@ -161,7 +161,8 @@ All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, Ri
 ### Orchestrator internals
 
 - `orchestrator/main.py` — `run_pipeline(tickers, mode, interactive, prompt)`: LangGraph entry point. First node is `node_task_decomposer` (no-op if `prompt` is None). Compiles the graph with `_build_graph_builder()` on every call (to allow correct checkpointing). `PipelineState` TypedDict fields: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `judgment`, `ticker_history`, `previous_runs`, `user_prompt`, `task_decomposition`.
-- `orchestrator/api.py` — FastAPI on port 8000. `POST /research` (accepts `tickers`, `mode`, `prompt`), `GET /portfolio`, `GET /health`. Routes requests to `run_pipeline()`.
+- `orchestrator/api.py` — FastAPI on port 8000. `GET /` (streaming demo UI), `POST /research` (sync, returns full result), `POST /research/stream` (SSE streaming, emits `pipeline_started | health_check | node_started | node_completed | guardrail | pipeline_completed` events), `GET /portfolio`, `GET /health`, `GET /report/{filename}`. `stream_pipeline()` in `main.py` wraps `graph.astream(stream_mode="debug")`.
+- `static/index.html` — live streaming Web UI: pipeline diagram with gate nodes, event log, guardrail panel (DEGRADED/QUALITY/SECURITY), grounding score bar, Portfolio & Trades panel (trade table with AUTO approval badges, cash summary, review text). All UI text in English; report content remains in Italian.
 
 ### Domain constraints (hardcoded in agent prompts)
 
