@@ -376,19 +376,19 @@ _DECOMPOSER_MAX_TOKENS = 10_000  # must be > budget_tokens
 
 def _synthetic_rationale(user_prompt: str, decomp: "TaskDecomposition") -> str:
     """Build a deterministic rationale for DEMO_MODE — exercises the injection path."""
-    horizon = f"{decomp.horizon_weeks} settimane" if decomp.horizon_weeks else "non specificato"
-    sectors = ", ".join(decomp.sectors) if decomp.sectors else "da determinare via news"
-    constraints = "; ".join(decomp.constraints) if decomp.constraints else "nessuno aggiuntivo"
-    tickers = ", ".join(decomp.tickers) if decomp.tickers else "nessuno esplicito — ricerca news-driven"
+    horizon = f"{decomp.horizon_weeks} weeks" if decomp.horizon_weeks else "not specified"
+    sectors = ", ".join(decomp.sectors) if decomp.sectors else "to be determined via news"
+    constraints = "; ".join(decomp.constraints) if decomp.constraints else "none additional"
+    tickers = ", ".join(decomp.tickers) if decomp.tickers else "none explicit — news-driven search"
     return (
-        f"[DEMO rationale — extended thinking non attivo]\n"
-        f"Richiesta analizzata: '{user_prompt}'\n"
-        f"Intent classificato come '{decomp.intent}'.\n"
-        f"Ticker identificati: {tickers}.\n"
-        f"Settori rilevanti: {sectors}.\n"
-        f"Orizzonte temporale: {horizon}.\n"
-        f"Vincoli aggiuntivi: {constraints}.\n"
-        f"Gli agenti downstream devono concentrarsi su: {decomp.research_focus}."
+        f"[DEMO rationale — extended thinking not active]\n"
+        f"Request analysed: '{user_prompt}'\n"
+        f"Intent classified as '{decomp.intent}'.\n"
+        f"Tickers identified: {tickers}.\n"
+        f"Relevant sectors: {sectors}.\n"
+        f"Time horizon: {horizon}.\n"
+        f"Additional constraints: {constraints}.\n"
+        f"Downstream agents should focus on: {decomp.research_focus}."
     )
 
 
@@ -1059,15 +1059,14 @@ _NODE_LABELS: dict[str, str] = {
     "llm_judge":                "LLM Judge",
     "portfolio_manager":        "PortfolioManager",
     "memory_writer":            "MemoryWriter",
-    "sanitize_rss_item":        "Sanitizer RSS",
+    "sanitize_rss_item":        "RSS Sanitizer",
 }
 
 
 def _guardrail_event(source: str, key: str, reason: str) -> dict:
-    """Produce un guardrail event con categoria e messaggi human-readable."""
+    """Produce a guardrail event with category and human-readable message."""
     readable_source = _NODE_LABELS.get(source, source)
 
-    # Categorizzo il tipo di evento
     if "redact" in key or "inject" in reason.lower():
         category = "security"
         readable_reason = reason
@@ -1077,22 +1076,22 @@ def _guardrail_event(source: str, key: str, reason: str) -> dict:
     elif "warning" in key or "warning" in reason.lower():
         n = reason.split()[0] if reason[0].isdigit() else ""
         category = "quality"
-        readable_reason = f"{n} quality warning nel report — rivedi i candidati" if n else reason
+        readable_reason = f"{n} quality warning(s) in report — review candidates" if n else reason
     elif "llm_judge" in key:
         category = "quality"
         readable_reason = reason
     else:
         category = "degraded"
         if "HTTP 500" in reason or "HTTP 503" in reason or "HTTP 502" in reason:
-            readable_reason = "agente non raggiungibile — pipeline continua in modalità degraded"
+            readable_reason = "agent unreachable — pipeline continues in degraded mode"
         elif "connection refused" in reason:
-            readable_reason = "connessione rifiutata — agente non avviato"
+            readable_reason = "connection refused — agent not running"
         elif "timeout" in reason.lower():
-            readable_reason = "timeout — pipeline continua in modalità degraded"
+            readable_reason = "timeout — pipeline continues in degraded mode"
         elif "circuit breaker" in reason.lower():
-            readable_reason = "circuit breaker aperto — agente escluso temporaneamente"
+            readable_reason = "circuit breaker open — agent temporarily excluded"
         elif "No data for" in reason:
-            readable_reason = f"dati parziali — {reason}"
+            readable_reason = f"partial data — {reason}"
         else:
             readable_reason = reason
 

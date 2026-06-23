@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="it">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -476,7 +476,7 @@ select#mode { width: 90px; }
 
   <div class="ctrl-group">
     <label>TICKERS</label>
-    <input type="text" id="tickers" placeholder="AAPL MSFT UCG.MI" title="Separati da spazio, opzionale">
+    <input type="text" id="tickers" placeholder="AAPL MSFT UCG.MI" title="Space-separated, optional">
   </div>
 
   <div class="ctrl-group">
@@ -490,7 +490,7 @@ select#mode { width: 90px; }
 
   <div class="ctrl-group">
     <label>PROMPT</label>
-    <input type="text" id="prompt" placeholder="es. Analizza AI europee con orizzonte 3 mesi">
+    <input type="text" id="prompt" placeholder="e.g. Compare AI momentum across EU semiconductors, 3-month horizon">
   </div>
 
   <button id="run-btn" onclick="runPipeline()">RUN</button>
@@ -591,7 +591,7 @@ select#mode { width: 90px; }
     <div class="panel" id="guardrail-panel">
       <div class="panel-header">Guardrail Panel</div>
       <div class="panel-body">
-        <div id="guardrail-entries"><span style="color:var(--text-dim);font-size:11px">Nessun evento — avvia la pipeline.</span></div>
+        <div id="guardrail-entries"><span style="color:var(--text-dim);font-size:11px">No events — start the pipeline.</span></div>
       </div>
     </div>
 
@@ -628,12 +628,12 @@ select#mode { width: 90px; }
 <div class="report-section" id="report-section">
   <button class="report-toggle" onclick="toggleReport(this)">
     <span>Report &amp; Executive Summary</span>
-    <span id="report-toggle-icon">▼ espandi</span>
+    <span id="report-toggle-icon">▼ expand</span>
   </button>
   <div class="report-body" id="report-body">
     <pre id="report-text"></pre>
     <div class="report-actions">
-      <a id="report-link" class="btn-secondary" href="#" target="_blank" style="display:none">Apri report HTML</a>
+      <a id="report-link" class="btn-secondary" href="#" target="_blank" style="display:none">Open HTML report</a>
     </div>
   </div>
 </div>
@@ -643,7 +643,7 @@ select#mode { width: 90px; }
 function fmtTime(isoTs) {
   try {
     const d = new Date(isoTs);
-    return d.toLocaleTimeString('it-IT', {hour12: false});
+    return d.toLocaleTimeString('en-GB', {hour12: false});
   } catch { return ''; }
 }
 
@@ -724,7 +724,7 @@ function toggleReport(btn) {
   const body = document.getElementById('report-body');
   const icon = document.getElementById('report-toggle-icon');
   const open = body.classList.toggle('open');
-  icon.textContent = open ? '▲ comprimi' : '▼ espandi';
+  icon.textContent = open ? '▲ collapse' : '▼ expand';
 }
 
 // Node labels for display
@@ -753,7 +753,7 @@ function handleEvent(ev) {
 
     case 'pipeline_started':
       document.getElementById('run-id-badge').textContent = 'run: ' + ev.run_id.slice(0, 8);
-      addLog('type-pipeline_started', '▶', `Pipeline avviata — mode: ${ev.mode}  tickers: ${ev.tickers.join(', ') || 'news-driven'}`, ev.ts);
+      addLog('type-pipeline_started', '▶', `Pipeline started — mode: ${ev.mode}  tickers: ${ev.tickers.join(', ') || 'news-driven'}`, ev.ts);
       // grey-out portfolio nodes if mode=analyze
       if (ev.mode === 'analyze') {
         ['portfolio_loader', 'portfolio_manager'].forEach(n => setNodeState(n, 'skipped'));
@@ -769,7 +769,7 @@ function handleEvent(ev) {
       hc.appendChild(b);
       addLog('type-health_check ' + (ok ? 'ok' : 'ko'), ok ? '●' : '●',
              `${ev.agent}: ${ev.status}`, ev.ts);
-      if (!ok) addGuardrail(ev.agent, `agente non raggiungibile — verificare che sia avviato`, 'health');
+      if (!ok) addGuardrail(ev.agent, `agent unreachable — check it is running`, 'health');
       break;
     }
 
@@ -844,7 +844,7 @@ function handleEvent(ev) {
       }
 
       addLog('type-pipeline_completed', '★',
-             `Pipeline completata — ${m.latency_s}s, candidates: ${m.candidates}, score: ${m.grounding_score}/100`,
+             `Pipeline completed — ${m.latency_s}s, candidates: ${m.candidates}, score: ${m.grounding_score}/100`,
              ev.ts);
 
       // Show report section
@@ -852,16 +852,16 @@ function handleEvent(ev) {
       rs.style.display = 'block';
       const rt = document.getElementById('report-text');
       let reportText = '';
-      if (ev.executive_summary) reportText += '=== SINTESI ESECUTIVA ===\n\n' + ev.executive_summary;
+      if (ev.executive_summary) reportText += '=== EXECUTIVE SUMMARY ===\n\n' + ev.executive_summary;
       if (ev.qa_verdict) reportText += '\n\n=== QA VERDICT ===\n\n' + ev.qa_verdict;
-      rt.textContent = reportText || '(nessuna sintesi disponibile)';
+      rt.textContent = reportText || '(no summary available)';
 
       if (ev.report_path) {
         const link = document.getElementById('report-link');
         link.style.display = '';
         const filename = ev.report_path.split(/[\\/]/).pop();
         link.href = '/report/' + filename;
-        link.textContent = 'Apri report HTML';
+        link.textContent = 'Open HTML report';
       }
 
       document.getElementById('run-btn').disabled = false;
@@ -869,7 +869,7 @@ function handleEvent(ev) {
     }
 
     case 'error':
-      addLog('type-error', '✗', `ERRORE: ${ev.message}`, new Date().toISOString());
+      addLog('type-error', '✗', `ERROR: ${ev.message}`, new Date().toISOString());
       document.getElementById('run-btn').disabled = false;
       break;
   }
@@ -885,7 +885,7 @@ async function runPipeline() {
   // Reset UI
   document.getElementById('log-entries').innerHTML = '';
   document.getElementById('guardrail-entries').innerHTML =
-    '<span style="color:var(--text-dim);font-size:11px">In attesa di eventi...</span>';
+    '<span style="color:var(--text-dim);font-size:11px">Waiting for events...</span>';
   document.getElementById('agent-health').innerHTML = '';
   document.getElementById('run-id-badge').textContent = '';
   document.getElementById('report-section').style.display = 'none';
@@ -912,7 +912,7 @@ async function runPipeline() {
       body: JSON.stringify(body),
     });
   } catch (err) {
-    addLog('type-error', '✗', 'Connessione fallita — orchestrator in esecuzione?', new Date().toISOString());
+    addLog('type-error', '✗', 'Connection failed — is the orchestrator running?', new Date().toISOString());
     btn.disabled = false;
     return;
   }
@@ -942,13 +942,13 @@ async function runPipeline() {
             const ev = JSON.parse(line.slice(6));
             handleEvent(ev);
           } catch (e) {
-            console.warn('Evento non parsabile:', line, e);
+            console.warn('Unparsable event:', line, e);
           }
         }
       }
     }
   } catch (err) {
-    addLog('type-error', '✗', 'Stream interrotto: ' + err.message, new Date().toISOString());
+    addLog('type-error', '✗', 'Stream interrupted: ' + err.message, new Date().toISOString());
   } finally {
     btn.disabled = false;
   }
