@@ -1070,7 +1070,7 @@ def _guardrail_event(source: str, key: str, reason: str) -> dict:
     if "redact" in key or "inject" in reason.lower():
         category = "security"
         readable_reason = reason
-    elif "blocked" in key:
+    elif "blocked" in key or "fatal" in key:
         category = "blocked"
         readable_reason = reason
     elif "warning" in key or "warning" in reason.lower():
