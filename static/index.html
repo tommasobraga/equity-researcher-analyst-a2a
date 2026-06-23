@@ -719,7 +719,7 @@ function setNodeState(node, state, detail) {
 }
 
 function resetNodes() {
-  document.querySelectorAll('.node').forEach(n => {
+  document.querySelectorAll('.node, .gate-node').forEach(n => {
     n.dataset.state = 'pending';
     const det = n.querySelector('.node-detail');
     if (det) det.textContent = '—';
@@ -815,9 +815,14 @@ function handleEvent(ev) {
     case 'pipeline_started':
       document.getElementById('run-id-badge').textContent = 'run: ' + ev.run_id.slice(0, 8);
       addLog('type-pipeline_started', '▶', `Pipeline started — mode: ${ev.mode}  tickers: ${ev.tickers.join(', ') || 'news-driven'}`, ev.ts);
-      // grey-out portfolio nodes if mode=analyze
       if (ev.mode === 'analyze') {
         ['portfolio_loader', 'portfolio_manager'].forEach(n => setNodeState(n, 'skipped'));
+      } else if (ev.mode === 'portfolio') {
+        ['data_collector', 'news_sentiment', 'rag_retriever',
+         'fundamental_analyst', 'gate_fundamental_analyst',
+         'risk_assessor', 'gate_risk_assessor',
+         'report_writer', 'gate_report_writer',
+         'llm_judge'].forEach(n => setNodeState(n, 'skipped'));
       }
       break;
 
