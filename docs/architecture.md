@@ -254,7 +254,7 @@ graph TB
 | RSS Feeds | operational | Phase 5: verify commercial license |
 | LLM Provider | `local` (test) / `bedrock` (prod) | Evaluate Vertex for EU data residency |
 | Storage | SQLite (`portfolio.db`, `memory.db`, `checkpoints.db`) | Phase 5/6: upgrade to PostgreSQL |
-| Agent Memory | SQLite per-agent (Phase A+B) | Future phase: vector store for RAG |
+| Agent Memory | SQLite per-agent (Phase A+B); UI visualization: memory.db cylinder in streaming dashboard (load stats on FA, written state on MemoryWriter, cross-run loop label) | Future phase: vector store for RAG |
 | RAG Retriever | TF-IDF keyword (operational) | Phase 5+: embedding-based with Bedrock Titan on pgvector/ChromaDB |
 | RAG Documents | 11 synthetic documents in `data/rag/documents/` | Replace with real internal documentation |
 | Auth | optional inter-agent HMAC | Phase 5: mutual TLS or API gateway |
