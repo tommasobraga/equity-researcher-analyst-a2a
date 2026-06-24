@@ -172,6 +172,9 @@ select#mode { width: 90px; }
 
 .node .node-label { font-weight: bold; }
 .node .node-detail { font-size: 10px; color: #707070; margin-top: 2px; min-height: 14px; }
+.node .node-mem-hint { font-size: 9px; color: #4a2a6e; margin-top: 1px; letter-spacing: 0.2px; }
+.node[data-state="working"]   .node-mem-hint { color: #8040b0; }
+.node[data-state="completed"] .node-mem-hint { color: #9060c8; }
 
 .node[data-state="working"] {
   border-color: var(--yellow);
@@ -289,10 +292,67 @@ select#mode { width: 90px; }
   background: var(--border);
 }
 
+/* ── Persistent memory DB symbol ────────────────────────── */
+.memory-db-wrap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+  gap: 0;
+}
+
+.memory-db-cylinder {
+  width: 220px;
+  position: relative;
+  border: 1px solid var(--purple);
+  border-radius: 4px;
+  padding: 16px 12px 8px;
+  text-align: center;
+  background: #180d26;
+  color: var(--purple);
+}
+.memory-db-cylinder::before {
+  content: '';
+  position: absolute;
+  top: -8px; left: -1px; right: -1px;
+  height: 15px;
+  border: 1px solid var(--purple);
+  border-radius: 50%;
+  background: #200f38;
+}
+.memory-db-cylinder::after {
+  content: '';
+  position: absolute;
+  top: -1px; left: -1px; right: -1px;
+  height: 7px;
+  border-radius: 50%;
+  background: #200f38;
+}
+.memory-db-name  { font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
+.memory-db-tables { font-size: 9px; color: #7040a8; margin-top: 3px; }
+.memory-db-state  { font-size: 10px; color: var(--purple); margin-top: 5px; min-height: 14px; }
+
+.memory-db-cylinder.written {
+  border-color: #a060d8;
+  background: #1e0f33;
+}
+
+.memory-loop-label {
+  font-size: 9px;
+  color: #6030a0;
+  text-align: center;
+  margin-top: 6px;
+  padding: 3px 8px;
+  border: 1px dashed #3d1d5e;
+  border-radius: 3px;
+  width: 220px;
+  letter-spacing: 0.2px;
+}
+
 /* ── Right panels ────────────────────────────────────────── */
 .right-panels {
   display: grid;
-  grid-template-rows: 1fr 180px 120px;
+  grid-template-rows: 1fr 180px 150px;
   min-height: 0;
   overflow: hidden;
 }
@@ -399,6 +459,7 @@ select#mode { width: 90px; }
 .metric-value.green { color: var(--green); }
 .metric-value.yellow { color: var(--yellow); }
 .metric-value.red { color: var(--red); }
+.metric-value.purple { color: var(--purple); }
 
 .score-bar-wrap { grid-column: 1 / -1; }
 .score-bar {
@@ -636,6 +697,7 @@ select#mode { width: 90px; }
 
       <div class="node" id="node-fundamental_analyst" data-state="pending">
         <div class="node-label">FundamentalAnalyst</div>
+        <div class="node-mem-hint">↑ reads memory.db at run start</div>
         <div class="node-detail" id="det-fundamental_analyst">—</div>
       </div>
       <div class="arrow"></div>
@@ -690,6 +752,17 @@ select#mode { width: 90px; }
         <div class="node-detail" id="det-memory_writer">—</div>
       </div>
 
+      <div class="arrow"></div>
+
+      <div class="memory-db-wrap">
+        <div class="memory-db-cylinder" id="memory-db-cylinder">
+          <div class="memory-db-name">memory.db</div>
+          <div class="memory-db-tables">ticker_analyses · run_summaries</div>
+          <div class="memory-db-state" id="memory-db-state">—</div>
+        </div>
+        <div class="memory-loop-label">↑ read by FundamentalAnalyst on next run</div>
+      </div>
+
     </div>
   </aside>
 
@@ -731,6 +804,10 @@ select#mode { width: 90px; }
         <div class="metric">
           <span class="metric-label">Latency</span>
           <span class="metric-value" id="m-latency">—</span>
+        </div>
+        <div class="metric">
+          <span class="metric-label">Memory context</span>
+          <span class="metric-value" id="m-memory">—</span>
         </div>
         <div class="score-bar-wrap">
           <div class="score-bar"><div class="score-bar-fill" id="score-bar-fill"></div></div>
@@ -992,9 +1069,22 @@ function handleEvent(ev) {
         case 'rag_retriever':
           detail = `${d.chunks || 0} chunk(s)`;
           break;
-        case 'fundamental_analyst':
+        case 'fundamental_analyst': {
           detail = `${d.candidates || 0} candidate(s)`;
+          const mm = document.getElementById('m-memory');
+          const dbState = document.getElementById('memory-db-state');
+          if (d.memory_tickers > 0 || d.memory_runs > 0) {
+            detail += ` · mem: ${d.memory_tickers}t ${d.memory_runs}r`;
+            mm.textContent = `${d.memory_tickers} ticker(s) · ${d.memory_runs} past run(s)`;
+            mm.className = 'metric-value purple';
+            if (dbState) dbState.textContent = `loaded: ${d.memory_tickers}t · ${d.memory_runs}r`;
+          } else {
+            mm.textContent = 'cold start';
+            mm.className = 'metric-value';
+            if (dbState) dbState.textContent = 'cold start — no prior history';
+          }
           break;
+        }
         case 'risk_assessor':
           detail = `${d.assessments || 0} assessment(s)`;
           break;
@@ -1017,6 +1107,16 @@ function handleEvent(ev) {
           detail = d.trades !== undefined ? `${d.trades} trade(s)` : '';
           if (d.trades_detail) renderPortfolio(d);
           break;
+        case 'memory_writer': {
+          detail = d.persisted ? 'persisted' : '';
+          const cyl = document.getElementById('memory-db-cylinder');
+          const dbS = document.getElementById('memory-db-state');
+          if (d.persisted) {
+            if (cyl) cyl.classList.add('written');
+            if (dbS) dbS.textContent = '✓ updated this run';
+          }
+          break;
+        }
       }
       setNodeState(ev.node, 'completed', detail);
       addLog('type-node_completed', '✓',
@@ -1116,6 +1216,12 @@ async function runPipeline() {
   document.getElementById('score-bar-fill').style.width = '0%';
   document.getElementById('m-score').className = 'metric-value';
   document.getElementById('m-verdict').className = 'metric-value';
+  document.getElementById('m-memory').textContent = '—';
+  document.getElementById('m-memory').className = 'metric-value';
+  const dbCyl = document.getElementById('memory-db-cylinder');
+  if (dbCyl) dbCyl.classList.remove('written');
+  const dbSt = document.getElementById('memory-db-state');
+  if (dbSt) dbSt.textContent = '—';
   resetNodes();
 
   const btn = document.getElementById('run-btn');

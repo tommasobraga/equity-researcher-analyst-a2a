@@ -1124,7 +1124,13 @@ def _node_summary(node: str, update: dict) -> dict:
             ctx = update.get("rag_context", "")
             return {"chunks": ctx.count("[Source:") if ctx else 0}
         case "fundamental_analyst":
-            return {"candidates": len(update.get("candidates", []))}
+            th = update.get("ticker_history", {})
+            pr = update.get("previous_runs", [])
+            return {
+                "candidates": len(update.get("candidates", [])),
+                "memory_tickers": len(th),
+                "memory_runs": len(pr),
+            }
         case "risk_assessor":
             return {"assessments": len(update.get("risk_assessment", []))}
         case "report_writer":
@@ -1145,6 +1151,8 @@ def _node_summary(node: str, update: dict) -> dict:
                 "positions_after": pu.get("positions_after", []),
                 "review": pr.get("review", ""),
             }
+        case "memory_writer":
+            return {"persisted": True}
         case _:
             return {}
 
