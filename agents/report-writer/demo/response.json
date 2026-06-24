@@ -86,7 +86,7 @@
             "hold": 3,
             "sell": 0,
             "strong_sell": 0,
-            "giudizio_sintetico": "Strong Buy — consenso più favorevole nell'universo coperto",
+            "giudizio_sintetico": "Strong Buy",
             "target_medio": "1380.00 USD"
           }
         },
@@ -134,7 +134,7 @@
             "hold": 18,
             "sell": 7,
             "strong_sell": 2,
-            "giudizio_sintetico": "Hold — consenso frammentato con revisioni al ribasso in corso",
+            "giudizio_sintetico": "Hold",
             "target_medio": "460.00 USD"
           }
         },
@@ -182,7 +182,7 @@
             "hold": 5,
             "sell": 1,
             "strong_sell": 0,
-            "giudizio_sintetico": "Buy — consensus positivo con upside al target del 23%",
+            "giudizio_sintetico": "Buy",
             "target_medio": "52.00 EUR"
           }
         },
@@ -230,7 +230,7 @@
             "hold": 4,
             "sell": 0,
             "strong_sell": 0,
-            "giudizio_sintetico": "Strong Buy — monopolio EUV con backlog record",
+            "giudizio_sintetico": "Strong Buy",
             "target_medio": "1050.00 USD"
           }
         },
@@ -278,56 +278,8 @@
             "hold": 4,
             "sell": 1,
             "strong_sell": 0,
-            "giudizio_sintetico": "Buy — consensus positivo con upside al target del 18%",
+            "giudizio_sintetico": "Buy",
             "target_medio": "4.80 EUR"
-          }
-        },
-        {
-          "rank": 6,
-          "ticker": "AAPL",
-          "azienda": "Apple Inc.",
-          "mercato": "US",
-          "tema": "T1",
-          "tesi": "Il via libera DMA per Apple Intelligence nell'UE (N2) apre 450M utenti a funzionalità AI premium. Il ciclo di upgrade iPhone guidato dall'AI è nella fase iniziale: solo il 35% degli iPhone attivi è compatibile, creando un motore di sostituzione hardware nei prossimi 18-24 mesi. L'EU AI Act (N6) posiziona Apple come vendor compliant per natura grazie all'on-device processing.",
-          "catalizzatore": "Presentazione iPhone 18 (settembre 2026) con Apple Intelligence v2. Lancio in Europa Q4 2026.",
-          "orizzonte_settimane": "20-32 settimane",
-          "scenari": {
-            "base": "iPhone 18 catalizza ciclo upgrade moderato, EPS FY2027 7.20 USD, titolo verso 230 USD.",
-            "bull": "Penetrazione Apple Intelligence EU supera 50% entro Q1 2027, ARPU servizi 28 USD, titolo verso 270 USD.",
-            "bear": "Ciclo upgrade delude, crescita servizi sotto 10%, titolo ritesta 180 USD."
-          },
-          "rischi": {
-            "macro": "Rallentamento consumi premium in US e Cina.",
-            "settore": "Android AI con prezzi aggressivi erode il vantaggio differenziale.",
-            "azienda": "Dipendenza da TSMC per chip A-series.",
-            "regolatorio": "DMA enforcement forzatura apertura App Store, comprimendo margini Services.",
-            "valutazione": "P/E 34.2x elevato per azienda hardware con crescita revenue single-digit."
-          },
-          "trigger_falsificazione": "Se le prevendite iPhone 18 nei primi 72 ore sono inferiori del 15% all'iPhone 17, il ciclo upgrade AI non si è materializzato.",
-          "prossime_verifiche": [
-            "WWDC 2026 (giugno 2026) — Apple Intelligence v2",
-            "Dati supply chain iPhone 18 (agosto-settembre 2026)",
-            "Earnings Q3 FY2026 (agosto 2026) — crescita servizi"
-          ],
-          "evidenze_citate": ["N2", "N6"],
-          "rating_qualita": "media",
-          "scoring": {
-            "forza_catalizzatore": 7,
-            "fit_orizzonte": 7,
-            "asimmetria_narrativa": 6,
-            "qualita_evidenze": 8,
-            "rischio_crowding": 5,
-            "totale": 33
-          },
-          "consenso_analisti": {
-            "totale_analisti": 42,
-            "strong_buy": 18,
-            "buy": 14,
-            "hold": 8,
-            "sell": 2,
-            "strong_sell": 0,
-            "giudizio_sintetico": "Buy — consensus positivo, upside moderato al target",
-            "target_medio": "228.50 USD"
           }
         }
       ],
