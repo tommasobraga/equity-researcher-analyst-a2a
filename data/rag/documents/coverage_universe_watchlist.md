@@ -1,93 +1,46 @@
-# Watchlist & Coverage Universe — Aggiornamento Aprile 2026
-**Data:** Aprile 2026 | **Classificazione:** Uso interno
+# Coverage Universe and Watchlist
+**Doc-type:** Internal Reference | **Updated:** April 2026 | **Classification:** Internal Use Only
 
 ---
 
-## Universo in Coverage Attiva
+## Active Coverage — Core Holdings Eligible
 
-### USA — Technology & AI
+| Ticker | Name | Exchange | Sector | Last Score | Status |
+|---|---|---|---|---|---|
+| MSFT | Microsoft Corporation | NASDAQ | Software / AI Cloud | 42/50 | BUY |
+| NVDA | NVIDIA Corporation | NASDAQ | Semiconductors / AI | 45/50 | BUY |
+| AAPL | Apple Inc. | NASDAQ | Consumer Tech / Services | 38/50 | HOLD |
+| ASML | ASML Holding N.V. | NASDAQ / Euronext AMS | Semiconductors Equipment | 40/50 | BUY |
+| UCG.MI | UniCredit S.p.A. | Borsa Italiana | European Banking | 36/50 | HOLD |
 
-| Ticker | Nome | Sub-settore | Capitalizzazione | Status |
+---
+
+## Watchlist — Under Review
+
+| Ticker | Name | Exchange | Sector | Rationale |
 |---|---|---|---|---|
-| MSFT | Microsoft Corp | Cloud / AI Enterprise | Mega cap | Coverage attiva |
-| GOOGL | Alphabet Inc | Search / Cloud / AI | Mega cap | Coverage attiva |
-| NVDA | NVIDIA Corp | GPU / AI Acceleratori | Mega cap | Coverage attiva |
-| AVGO | Broadcom Inc | Networking / Custom AI | Large cap | Coverage attiva |
-| NOW | ServiceNow | IT Workflow AI | Large cap | Coverage attiva |
-| ANET | Arista Networks | Networking AI data center | Mid-large cap | Coverage attiva |
-| PLTR | Palantir Technologies | AI Applicata Governo/Enterprise | Mid cap | Watch — alta volatilità |
-| DDOG | Datadog | Observability / AI Monitoring | Mid cap | Coverage attiva |
-
-### USA — Semiconduttori
-
-| Ticker | Nome | Sub-settore | Capitalizzazione | Status |
-|---|---|---|---|---|
-| NVDA | NVIDIA Corp | GPU/HPC | Mega cap | (vedi sopra) |
-| AMAT | Applied Materials | Equipment | Large cap | Coverage attiva |
-| KLAC | KLA Corp | Equipment ispezione | Large cap | Coverage attiva |
-| MRVL | Marvell Technology | Custom silicon / networking | Mid-large cap | Watch |
-
-### USA — Banking & Fintech
-
-| Ticker | Nome | Sub-settore | Capitalizzazione | Status |
-|---|---|---|---|---|
-| JPM | JPMorgan Chase | Banking diversificato | Mega cap | Coverage selettiva |
-| GS | Goldman Sachs | Investment Banking | Large cap | Coverage selettiva |
-| V | Visa Inc | Network pagamenti | Mega cap | Coverage attiva |
-| MA | Mastercard | Network pagamenti | Mega cap | Coverage attiva |
+| META | Meta Platforms | NASDAQ | Social / AI Infrastructure | AI capex acceleration; Reality Labs drag on valuation |
+| ISP.MI | Intesa Sanpaolo | Borsa Italiana | European Banking | High RoTE but capital return less aggressive than UCG |
+| SAP | SAP SE | NYSE (ADR) / Xetra | Enterprise Software | AI-driven ERP renewal cycle; valuation stretched |
+| ARM | Arm Holdings | NASDAQ | Semiconductor IP | AI inference edge; royalty model leverage; high P/E |
 
 ---
 
-## Europa — Technology
+## Recently Removed
 
-| Ticker | Nome | Sub-settore | Mercato | Status |
-|---|---|---|---|---|
-| ASML | ASML Holding | Litografia EUV | AMS | Coverage attiva |
-| SAP | SAP SE | ERP / Cloud Enterprise | XETRA | Coverage attiva |
-| CAP.PA | Capgemini | IT Services / AI | Euronext | Watch |
-| DSY.PA | Dassault Systèmes | PLM / Simulazione | Euronext | Watch |
+| Ticker | Reason for Removal |
+|---|---|
+| GOOGL | Antitrust ruling (US DOJ, August 2024) creates structural uncertainty on Search monetisation |
+| INTC | Foundry business losses; delayed 18A node; management credibility impaired |
 
 ---
 
-## Europa — Banking
+## Sector Views
 
-| Ticker | Nome | Paese | Mercato | Status |
-|---|---|---|---|---|
-| UCG.MI | UniCredit | Italia | Borsa Italiana | Coverage attiva |
-| ISP.MI | Intesa Sanpaolo | Italia | Borsa Italiana | Coverage attiva |
-| BBVA.MC | BBVA | Spagna | BME | Coverage attiva |
-| BNP.PA | BNP Paribas | Francia | Euronext | Coverage selettiva |
-| ING.AS | ING Groep | Paesi Bassi | AMS | Watch |
+**Semiconductors (POSITIVE):** AI capex super-cycle intact through 2027E. NVDA and ASML are the two irreplaceable nodes in the AI supply chain. Memory (SK Hynix HBM) excluded from coverage universe (Korean listing).
 
----
+**Cloud / AI Software (POSITIVE):** Azure growth re-accelerating. Copilot monetisation inflecting. Risk: AI pricing pressure if hyperscaler gross margins compress.
 
-## Watchlist — Potenziali Nuovi Ingressi
+**European Banking (NEUTRAL-POSITIVE):** NII compression from ECB easing partly offset by fee growth and buybacks. UCG most attractive risk/reward in EU banking given capital efficiency and Commerzbank optionality.
 
-| Ticker | Nome | Motivazione | Barriera |
-|---|---|---|---|
-| ARM | ARM Holdings | Architettura chip AI pervasiva | Valutazione elevata |
-| ADBE | Adobe | AI creativa + Document Cloud | Concorrenza AI generativa |
-| SNOW | Snowflake | Data cloud + AI workload | Profittabilità ancora in costruzione |
-| CRWD | CrowdStrike | Cybersecurity AI-native | Incident recovery da monitorare |
-
----
-
-## Titoli Rimossi dalla Coverage (ultimi 12 mesi)
-
-| Ticker | Motivazione rimozione | Data |
-|---|---|---|
-| META | Ri-inclusione possibile — review in corso | Gen 2026 |
-| AMZN | Ri-inclusione possibile — AWS focus | Feb 2026 |
-
-*Nota: META e AMZN sono stati temporaneamente sospesi per review interna sui criteri di settore (advertising vs cloud). Decisione finale attesa Q3 2026.*
-
----
-
-## Criteri di Inclusione nella Coverage
-
-1. Rientra nell'universo geografico e settoriale (IPS)
-2. Capitalizzazione > 5B USD/EUR
-3. Liquidità media giornaliera > 10M USD/EUR
-4. Copertura sell-side ≥ 5 analisti
-5. Report ESG disponibile (annuale)
-6. Nessuna pending investigation materiale da autorità regolatorie
+**Consumer Tech (NEUTRAL):** AAPL faces China headwinds and DMA cost; Services growth partially compensates. iPhone 18 modem integration is a 12-month catalyst.

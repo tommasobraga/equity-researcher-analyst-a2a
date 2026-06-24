@@ -1,101 +1,94 @@
-# Framework di Valutazione — Technology & Software
-**Versione:** 2.0 | **Data:** Marzo 2026 | **Analista:** Research Desk Global Tech | **Classificazione:** Uso interno
+# Valuation Framework — Technology & Software
+**Doc-type:** Internal Methodology | **Version:** 2.0 | **Date:** March 2026
+**Classification:** Internal Use Only | **Owner:** Research Desk Global Tech
 
 ---
 
-## Principio Generale
+## 1. Overview
 
-La valutazione di aziende tech e software richiede framework adattati per sub-settore. Un P/E alto non è automaticamente costoso se la crescita e la qualità degli utili lo giustificano. Questo documento definisce le metriche primarie e secondarie per ogni categoria.
-
----
-
-## 1. Software Enterprise / SaaS
-
-### Metriche Primarie
-- **EV/NTM Revenue:** metrica principale per confronto peer
-  - < 5x: economico (ma verificare crescita)
-  - 5–15x: range normale per SaaS in crescita
-  - > 20x: premium — deve essere giustificato da crescita > 30% e NRR > 120%
-
-- **Rule of 40:** Crescita Revenue YoY% + FCF Margin%
-  - > 50: best-in-class
-  - 40–50: buona qualità
-  - < 40: sotto la media, richiede motivazione
-
-### Metriche Secondarie
-- **NRR (Net Revenue Retention):** > 110% minimo, > 120% per premium
-- **CAC Payback Period:** < 18 mesi per B2B enterprise
-- **RPO / Revenue ratio:** proxy per visibilità futura (target > 1.5x)
-- **Magic Number:** efficienza sales (> 0.75 accettabile, > 1.0 ottimo)
-
-### Segnali di Qualità Alta
-- FCF margin positivo con crescita > 20%
-- NRR in espansione (non solo stabile)
-- Cohort analysis mostra espansione netta nel tempo
-- Gross margin > 70%
+This document defines the valuation methodology applied to technology and software companies in our coverage universe. Standard accounting metrics (P/E, EV/EBITDA) are insufficient for high-growth tech companies due to heavy capitalised R&D, stock-based compensation (SBC), and deferred revenue dynamics.
 
 ---
 
-## 2. Semiconduttori (Fabless)
+## 2. Primary Valuation Metrics by Subsector
 
-### Metriche Primarie
-- **EV/EBITDA NTM:** range normale 15–35x per ciclo espansivo
-- **P/E NTM:** > 30x giustificabile solo per AI-exposed con growth > 25%
-- **EV/Sales:** usare con cautela — ciclicità distorce il multiplo
+### Cloud / SaaS
+**Primary:** EV/NTM Revenue, Rule of 40 (Revenue Growth % + FCF Margin %)
+**Secondary:** EV/FCF (non-GAAP), Price/NTM FCF
 
-### Metriche Secondarie
-- **Gross margin trend:** espansione = mix shift verso prodotti premium
-- **Inventory days:** > 120 giorni = segnale warning
-- **Book-to-bill:** > 1.0 = domanda > offerta (positivo)
+Rule of 40 benchmarks:
+- Best-in-class: > 60 (e.g., MSFT Azure ~65, Cloudflare ~55)
+- Acceptable: 40–60
+- Requires explanation: < 40
 
-### Aggiustamento Ciclico
-I multipli del settore si espandono e contraggono con il ciclo. Normalizzare sempre su EPS medi del ciclo (5 anni) per evitare errori di valutazione nel momento sbagliato del ciclo.
+### Semiconductors
+**Primary:** EV/EBITDA (non-GAAP), P/NTM Earnings (non-GAAP)
+**Secondary:** EV/Sales, Price/Book (for asset-heavy fabs)
 
----
+Note: NVDA's non-GAAP excludes $4.2B annual SBC — use non-GAAP consistently but disclose GAAP gap.
 
-## 3. Large Cap Tech / Piattaforme
+### Semiconductor Equipment
+**Primary:** EV/EBITDA, Order Book / Revenue (backlog coverage ratio)
+**Secondary:** EV/FCF, P/E
 
-### Metriche Primarie
-- **P/E NTM adjusted:** escludere stock-based compensation per confronto corretto
-- **EV/FCF:** metrica definitiva per piattaforme mature con moat
-- **PEG ratio:** P/E / crescita EPS — < 1.5x attraente, > 2.5x caro
+ASML backlog of €48.3B at 1.6× annual revenue provides exceptional revenue visibility — a premium to spot EV/EBITDA is justified.
 
-### Metriche Secondarie
-- **Segment margin analysis:** decomposizione per business unit
-- **Capital allocation:** buyback yield + dividend yield vs FCF yield
-- **Cloud revenue growth:** per MSFT, GOOGL, AMZN — indicatore leading
+### European Banks
+**Primary:** Price/Tangible Book Value (P/TBV), RoTE vs Cost of Equity spread
+**Secondary:** Dividend yield, buyback yield (total capital return yield)
 
-### Note Specifiche
-- MSFT: cloud (Azure) è il valore principale — applicare DCF separato per segmento
-- GOOGL: monetizzazione AI Search come upside optionality, non nel consensus base
-- META: IA generativa applicata alla pubblicità = effetto moltiplicatore ARPU
+UCG trades at 1.2× TBV with 20.1% RoTE vs ~12% CoE (Bloomberg consensus). At peers' 1.0–1.1× TBV and lower RoTE, UCG's premium is justified.
 
 ---
 
-## 4. Fintech & Banking Technology
+## 3. Non-GAAP Adjustments — Standard Policy
 
-### Metriche Primarie
-- **P/E e P/Book:** per fintech con licenza bancaria
-- **EV/Revenue con aggiustamento per regolamentazione:** costi compliance capitalizzati
-- **Take rate trend:** % sui volumi transati — compressione = pricing power in calo
+We apply the following adjustments consistently across all coverage:
 
-### Metriche Secondarie
-- **TPV (Total Payment Volume) growth:** metrica operativa chiave
-- **Net interest income contribution:** per player con lending embedded
-- **Regulatory capital adequacy:** CET1 per player con licenza bancaria
+| Item | Treatment |
+|---|---|
+| Stock-based compensation (SBC) | Excluded from non-GAAP EPS; disclosed separately as % of revenue |
+| Amortisation of acquired intangibles | Excluded |
+| Restructuring charges (if non-recurring) | Excluded with disclosure |
+| Litigation settlements > $200M | Excluded with disclosure |
+| Unrealised gains/losses on equity investments | Excluded |
+
+**SBC as % of revenue (FY2025):** MSFT 2.3%, NVDA 3.1%, AAPL 1.9%, ASML 1.8%.
 
 ---
 
-## Tabella Multipli di Riferimento (Aprile 2026)
+## 4. DCF Framework
 
-| Sub-settore | EV/Revenue | P/E NTM | EV/FCF |
-|---|---|---|---|
-| SaaS high-growth (> 30%) | 10–18x | n.m. | 30–50x |
-| SaaS mid-growth (15–30%) | 6–12x | 30–50x | 25–40x |
-| SaaS mature (< 15%) | 3–7x | 20–30x | 15–25x |
-| Semiconduttori AI | 8–15x | 25–45x | 20–35x |
-| Semiconduttori commodity | 2–5x | 10–20x | 10–18x |
-| Large cap tech | 4–8x | 22–35x | 20–30x |
-| Fintech growth | 5–12x | n.m. | 25–40x |
+For terminal value estimation, we use the Gordon Growth Model:
 
-*Tabella aggiornata trimestralmente. Multipli correnti riflettono contesto tassi aprile 2026.*
+**TV = FCF_{n+1} / (WACC - g)**
+
+Standard assumptions:
+- Terminal growth rate (g): 3.0% (in line with long-run nominal GDP)
+- WACC: sector-adjusted (Tech large-cap: 9.0–10.5%; EU Banks: 11.0–12.5%)
+
+**Sensitivity tables** are mandatory for any DCF-based price target. Minimum: 3×3 matrix (WACC ± 50bps, terminal growth ± 50bps).
+
+---
+
+## 5. Peer Comparables — Current Multiples (April 2026)
+
+| Company | EV/NTM Sales | EV/NTM EBITDA | P/NTM FCF | RoTE |
+|---|---|---|---|---|
+| MSFT | 11.2× | 24.8× | 32.1× | 42% |
+| NVDA | 18.4× | 27.3× | 35.6× | 68% |
+| AAPL | 7.8× | 22.1× | 28.4× | 147%* |
+| ASML | 9.6× | 21.3× | 26.8× | 34% |
+| UCG.MI | 1.8× revenue | — | — | 20.1% |
+
+*AAPL RoTE inflated by negative book equity from buybacks.
+
+---
+
+## 6. Valuation Red Flags
+
+Automatic review required if:
+- Forward P/E > 60× without > 30% EPS growth
+- EV/Sales > 20× without clear path to > 30% FCF margin
+- PEG > 3.0×
+- Any company trading at > 10× its 5-year average P/E multiple without structural change justification

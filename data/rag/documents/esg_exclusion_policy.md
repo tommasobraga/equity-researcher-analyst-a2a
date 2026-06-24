@@ -1,82 +1,67 @@
-# ESG & Exclusion Policy — Equity Research Division
-**Versione:** 1.4 | **Data:** Febbraio 2026 | **Classificazione:** Uso interno
+# ESG and Exclusion Policy
+**Doc-type:** Internal Policy | **Version:** 1.4 | **Effective Date:** February 2026
+**Classification:** Internal Use Only | **Owner:** Compliance and Risk Committee
 
 ---
 
-## Principio Generale
+## 1. Purpose
 
-La policy di esclusione si basa su un approccio **norms-based + activity-based**. Un titolo è escluso se viola standard internazionali (norms-based) oppure se l'azienda genera ricavi significativi da attività incompatibili con il profilo ESG del portafoglio (activity-based).
+This policy defines mandatory exclusions and ESG assessment criteria applied to all investment candidates. Exclusions are hard constraints — they cannot be overridden by investment merit or financial performance.
 
 ---
 
-## Esclusioni Assolute (Hard Exclusions)
+## 2. Mandatory Exclusions (Hard Screen)
 
-Nessuna deroga possibile indipendentemente da score finanziario o raccomandazione analisti.
+### 2.1 Sector Exclusions
+The following sectors are entirely excluded from the investment universe:
 
-### Settori
-| Settore | Soglia ricavi da attività esclusa |
+| Sector | Rationale |
 |---|---|
-| Armi controverse (cluster bomb, mine antipersona, armi chimiche/biologiche) | 0% — tolleranza zero |
-| Tabacco (produzione) | > 5% ricavi |
-| Gambling (gestione diretta) | > 10% ricavi |
-| Carbone termico (estrazione + produzione energia) | > 10% ricavi |
-| Sabbie bituminose | > 10% ricavi |
-| Crypto mining ad alto consumo energetico | > 10% ricavi |
+| Fossil fuel extraction (oil, gas, coal) | SFDR alignment, climate transition risk |
+| Coal-fired power generation | Paris Agreement commitments |
+| Weapons manufacturing (cluster munitions, anti-personnel mines, biological/chemical weapons) | International humanitarian law |
+| Tobacco | ESG mandate, long-term demand destruction |
+| Gambling | Fiduciary and reputational considerations |
+| Adult entertainment | Reputational |
 
-### Norms-based
-- Aziende con violazioni documentate dei Principi del Global Compact ONU (diritti umani, lavoro, ambiente, anticorruzione)
-- Aziende sotto sanzioni OFAC, EU, ONU
+### 2.2 Revenue Threshold Exclusions
+Companies with revenue above these thresholds from excluded activities are ineligible:
 
----
+| Activity | Revenue Threshold |
+|---|---|
+| Thermal coal (extraction + power) | > 5% of total revenue |
+| Unconventional fossil fuels (tar sands, Arctic) | > 5% of total revenue |
+| Conventional oil and gas | > 30% of total revenue |
+| Civilian firearms | > 10% of total revenue |
 
-## Esclusioni di Settore (già definite nell'IPS)
-
-Per completezza, si ricorda che i seguenti settori sono esclusi dall'universo investibile indipendentemente dall'analisi ESG:
-- Energia (oil & gas, utilities, rinnovabili)
-- Real estate e REIT
-- Consumer staples
-- Trasporti e compagnie aeree
-- DeFi / Web3 / asset digitali non regolamentati
-
----
-
-## Framework di Valutazione ESG
-
-Per i titoli nell'universo ammesso, la valutazione ESG è **integrativa** (non escludente) e contribuisce alla dimensione "Qualità del Management e Governance" dello scoring di rischio.
-
-### Criteri Ambientali (E)
-- Obiettivi di riduzione emissioni approvati da Science Based Targets (SBTi)
-- Report di sostenibilità conforme a GRI o TCFD
-- Esposizione a rischi fisici climatici nei top mercati
-
-### Criteri Sociali (S)
-- Politiche di diversity & inclusion documentate
-- Nessun contenzioso significativo su diritti dei lavoratori (ultimi 3 anni)
-- Indice di soddisfazione dipendenti (Glassdoor/Comparably) sopra media settoriale
-
-### Criteri di Governance (G)
-- Board indipendente > 50%
-- Separazione CEO/Chairman (o struttura equivalente)
-- Remunerazione CEO < 200x salario mediano dipendenti
-- No controversie contabili o di governance negli ultimi 5 anni
+### 2.3 Conduct-Based Exclusions
+- Any company under active OFAC SDN sanctions or EU Council restrictive measures
+- Any company found guilty of significant ESG violations in the last 3 years (Category A MSCI ESG controversy, UN Global Compact breach confirmed)
 
 ---
 
-## Integrazione con il Processo di Analisi
+## 3. ESG Assessment Framework
 
-1. **Pre-screening:** verifica hard exclusions prima di qualsiasi analisi (automated check)
-2. **Durante l'analisi:** la dimensione Governance (scoring dim. 5) incorpora i criteri G
-3. **Nel report finale:** sezione rischi deve includere eventuali rischi ESG materiali
-4. **Review periodica:** ogni titolo in portafoglio è sottoposto a ESG review annuale
+For eligible companies, the Fundamental Analyst agent produces an ESG score (0–10) as a qualitative overlay:
+
+| Dimension | Weight | Key Inputs |
+|---|---|---|
+| Environmental | 30% | Carbon intensity, Scope 1+2 emissions disclosure, net-zero commitment |
+| Social | 35% | Employee turnover, gender pay gap disclosure, supply chain audit coverage |
+| Governance | 35% | Board independence, SBC as % of revenue, audit committee quality, related-party transactions |
+
+ESG score < 4 triggers a mandatory disclosure note in the research report. ESG score does not block an investment but is included in the risk scoring (Dimension 5 — Risk).
 
 ---
 
-## Fonti di Dati ESG
+## 4. Specific Notes for Coverage Universe
 
-- MSCI ESG Ratings (quando disponibile tramite provider certificato — Fase 5)
-- Sustainalytics Risk Score
-- CDP Climate Score
-- Report di sostenibilità aziendali (fonte primaria diretta)
-- Bloomberg ESG Data (tramite licenza — Fase 5)
+**NVDA:** No ESG concerns. Data centre energy consumption is high (GB200 NVL72 consumes 120kW per rack). NVIDIA has committed to 100% renewable energy for US operations by FY2026. Governance is strong (Jensen Huang founder-led, no dual-class; SBC 3.1% of revenue, within policy).
 
-*Nota: in assenza di dati da provider certificati, la valutazione ESG è basata su fonti pubbliche (report aziendali, comunicati stampa, notizie verificate). Segnalare esplicitamente nel report quando la valutazione ESG è basata su fonti non certificate.*
+**MSFT:** Explicit commitment to be carbon negative by 2030 and to remove historical carbon emissions by 2050. Gender pay equity disclosed annually. No material governance concerns.
+
+**AAPL:** Privacy-by-design (on-device AI) is a positive ESG differentiator. Supply chain (Foxconn, TSMC) labour practices under ongoing monitoring — no confirmed Category A violations.
+
+**ASML:** Dutch governance standards, one-tier board with strong independence. Environmental footprint of EUV systems is high (energy-intensive chip manufacturing) but ASML's direct Scope 1+2 emissions are modest. Scope 3 (customer chip manufacturing) is material but industry standard.
+
+**UCG.MI:** CET1 capital strength reduces systemic risk. Green bond issuance €5.0B outstanding. CEO compensation at 187× median employee (below EU banking peer median of 210×).

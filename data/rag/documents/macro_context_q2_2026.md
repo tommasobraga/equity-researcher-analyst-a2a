@@ -1,74 +1,51 @@
-# Contesto Macro — Aggiornamento Q2 2026
-**Data:** Aprile 2026 | **Analista:** Strategy Desk | **Classificazione:** Uso interno
+# Macro Context — Q2 2026 Update
+**Doc-type:** Strategy Note | **Date:** April 2026 | **Classification:** Internal Use Only
+**Source:** Strategy Desk — compiled from ECB, Federal Reserve, IMF, Bloomberg consensus
 
 ---
 
-## Sintesi Macro Globale
+## Global Growth
 
-Il quadro macro globale nel Q2 2026 è caratterizzato da una crescita moderata con divergenza regionale crescente. L'inflazione è tornata vicino ai target delle banche centrali, aprendo spazio a ulteriori allentamenti monetari, ma la persistenza di pressioni sui servizi mantiene le banche centrali prudenti nei toni.
+**United States:** GDP growth 2.3% annualised in Q1 2026, in line with consensus. Labour market resilient (unemployment 4.1%), but leading indicators (ISM Manufacturing 48.3, Philly Fed -4.2) suggest H2 2026 deceleration risk. The Fed has cut rates 100bps since September 2025 (current Fed Funds: 4.25–4.50%). Market pricing implies one additional 25bps cut in 2026.
 
----
+**Eurozone:** GDP growth 1.4% in 2025, expected 1.6% in 2026. Germany recovering from 2024 technical recession driven by automotive restructuring and energy normalisation. ECB cut the deposit facility rate to 2.25% (four 25bps cuts since June 2025). Core inflation at 2.3%, still above target but trajectory is downward.
 
-## USA
-
-**Crescita:** PIL Q1 2026 +2.1% annualizzato — sopra trend ma in rallentamento rispetto al 2025.
-
-**Fed:** due tagli da 25bp attesi nel 2026 (giugno e dicembre), con FF rate target a 4.0–4.25% a fine anno. Mercato obbligazionario prezza scenario "higher for longer" vs scenario soft landing.
-
-**Mercato del lavoro:** disoccupazione al 4.2%, in lieve aumento ma non recessiva. JOLTS in normalizzazione dopo i picchi post-pandemia.
-
-**Implicazioni equity:** ambiente costruttivo per large cap growth con pricing power. Attenzione a small cap con leverage elevato.
+**China:** Official GDP growth 4.8% in 2025. Property sector stabilisation underway but recovery fragile. Government stimulus (RMB 3.5T fiscal package announced March 2026) supports near-term growth. US-China tech restrictions remain a structural headwind for both economies.
 
 ---
 
-## Europa
+## Interest Rates and Credit
 
-**Crescita:** ripresa fragile. Germania ancora in stagnazione (PMI manifatturiero < 50). Francia e Spagna più resilienti. Italia: +0.9% PIL 2026E trainato da PNRR.
+The rate environment is unambiguously in easing mode on both sides of the Atlantic. Implications for our coverage:
 
-**BCE:** ciclo di tagli avanzato. Tasso depositi al 2.25% (aprile 2026), con ulteriori tagli probabili a settembre e dicembre se inflazione conferma il trend.
-
-**Euro:** rafforzamento moderato vs USD per convergenza tassi — fattore leggermente negativo per esportatori europei.
-
-**Implicazioni equity:** banche europee sotto pressione NIM nel 2027; industriali tedeschi in attesa di rimbalzo domanda Cina; consumer resiliente nel Sud Europa.
+- **Negative for European banking NII** (UCG, ISP) — partially offset by volume growth and fee expansion. We model UCG NII -3% in FY2026 vs FY2025.
+- **Positive for tech valuations** — lower discount rates support high-multiple names. The 10Y UST at 4.35% (vs 5.0% peak in 2023) provides a more supportive DCF environment.
+- **Positive for M&A** — lower rates reduce financing costs; we expect EU banking consolidation to accelerate (UniCredit/Commerzbank as the headline case).
 
 ---
 
-## Cina
+## AI Infrastructure Cycle
 
-**Crescita:** +4.5% PIL 2026E — sotto il target ufficiale del 5%. Deflazione latente e crisi settore immobiliare non completamente risolta.
+The key macro question for our portfolio: is the AI capex super-cycle sustainable or approaching a peak?
 
-**Implicazioni equity:** esposizione Cina è un fattore di rischio per semiconduttori (export controls) e luxury europeo. Nessun titolo Cina nell'universo investibile, ma monitorare impatto indiretto.
+Our base case is sustained through 2027:
+- Hyperscaler combined capex (MSFT + GOOGL + AMZN + META) guided at $325B+ for 2026 vs $242B in 2025
+- New entrants (Oracle, CoreWeave, sovereign funds) add incremental demand
+- Inference demand is still in early innings — Sequoia Capital estimates $600B in annual AI inference revenue needed to justify current infrastructure investment, requiring 3–5 years of compounding
 
----
-
-## Temi Macro Chiave per il Portafoglio
-
-### 1. AI Capex Cycle
-Gli hyperscaler americani (MSFT, GOOGL, AMZN, META) hanno confermato guidance capex aggregate > 250B USD per il 2026. Questo sostiene la domanda di semiconduttori, networking, energy (escluso dal nostro universo) e software infrastrutturale.
-
-### 2. Tassi in Calo — Impatto Settoriale
-- **Positivo:** growth tech (riduzione discount rate), utility (escluse), REIT (esclusi)
-- **Negativo:** banking (NIM compression progressiva nel 2027)
-- **Neutro:** industriali tech, software enterprise (pricing power indipendente dai tassi)
-
-### 3. Geopolitica e Supply Chain
-- Reshoring produzione semiconduttori in corso (CHIPS Act USA, EU Chips Act)
-- Tensioni USA-Cina su export control: rischio persistente per > 15% dei ricavi chip da mercato cinese
-- Conflitto Ukraine: impatto limitato sui settori in coverage
-
-### 4. Regolamentazione AI
-- EU AI Act: in vigore da agosto 2024, compliance obbligatoria per high-risk AI entro 2026
-- USA: framework volontari, nessuna legge federale AI approvata
-- Impatto: costi compliance per vendor AI in EU, potenziale vantaggio competitivo per player con governance AI robusta
+Bear case trigger: hyperscaler margins compress sharply if AI monetisation lags infrastructure spending. Watch MSFT Intelligent Cloud operating margin (currently 45.9%) and META Cost per MAU. If either deteriorates materially in H1 2026, we would revise our AI capex cycle thesis.
 
 ---
 
-## Indicatori da Monitorare — Prossimi 90 Giorni
+## Currency
 
-| Evento | Data attesa | Rilevanza portafoglio |
-|---|---|---|
-| Fed meeting | Giugno 2026 | Alta — guidance tassi |
-| BCE meeting | Luglio 2026 | Alta — impatto banking |
-| Earnings season Q2 | Luglio–Agosto 2026 | Alta — conferma tesi AI |
-| PCE inflation USA | Mensile | Media — proxy Fed pivot |
-| PMI manifatturiero EU | Mensile | Media — sentiment industriali |
+EUR/USD at 1.085 as of April 2026. USD strength has modestly compressed EUR-reported earnings for US multinationals (MSFT, NVDA, AAPL) when translated. ASML reports in EUR — USD strength is positive for its order book expressed in USD. UCG reports in EUR, minimal FX impact.
+
+---
+
+## Key Risks to Monitor (Q2–Q3 2026)
+
+1. **US recession probability** — Bloomberg consensus 22%. Yield curve (2s10s) uninverted since January 2026 but not yet confirming expansion.
+2. **China escalation** — Any further US export controls on advanced chips or EU reciprocal measures would be material for NVDA and ASML.
+3. **EU banking M&A** — Commerzbank outcome (expected Q2 2026) sets precedent for EU cross-border banking consolidation.
+4. **AI Act enforcement** — August 2026 deadline for high-risk AI compliance. Enterprise deployment caution could create a soft patch in AI software spending.

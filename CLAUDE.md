@@ -138,7 +138,7 @@ Every agent follows the same pattern:
 - `shared/tools/yfinance_tool.py` — `get_stock_fundamentals(ticker)` / `get_stock_fundamentals_text(ticker)`. **Stub only** — yfinance removed (unofficial scraping, no commercial licence, MiFID II incompatible). Functions raise `NotImplementedError`. Certified provider integration (Refinitiv LSEG / Bloomberg B-PIPE / Alpha Vantage enterprise) planned for **Phase 5**. In `DEMO_MODE=true` these functions are never called.
 - `shared/tools/rss_feed.py` — `fetch_rss_news()` reads RSS feeds (Reuters, Yahoo Finance, MarketWatch) with retry logic. Commercial licence to be verified in Phase 5.
 - `shared/portfolio_db.py` — `init_db()` / `load_portfolio_state()` / `save_portfolio_state()`: SQLite persistence for the fictional portfolio (`output/portfolio.db`). Initial seed 100,000 USD. Natural upgrade to PostgreSQL in Phase 5/6.
-- `data/rag/documents/` — 11 synthetic documents (investment policy, sector notes, scoring methodology, macro context, watchlist). Replace with real internal documentation when available.
+- `data/rag/documents/` — 16 realistic-format documents in English: 4 company filings (MSFT/NVDA/ASML/AAPL 10-K excerpts), 1 earnings transcript (UCG.MI Q4 2025), 1 sell-side initiation (NVDA), 3 sector notes (AI software, semiconductors, EU banking), plus internal policy docs (IPS, risk scoring methodology, valuation framework, ESG policy, macro context, sector rotation, coverage watchlist). Metadata headers include ticker, doc-type, fiscal year, source. Structure mirrors real documents to support future embedding-based ingestion pipeline.
 
 ### Native ReAct loop
 

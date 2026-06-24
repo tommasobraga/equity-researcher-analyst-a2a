@@ -1,64 +1,46 @@
-# Nota Settoriale: Semiconduttori
-**Data:** Aprile 2026 | **Analista:** Research Desk Global Tech | **Classificazione:** Uso interno
+# Sector Note: Semiconductors
+**Doc-type:** Sector Note | **Date:** April 2026 | **Classification:** Internal Use Only
+**Analyst:** Research Desk Global Tech
 
 ---
 
-## Sintesi del Quadro
+## Sector View: POSITIVE — AI capex super-cycle intact
 
-Il settore semiconduttori è in fase di espansione ciclica guidata dalla domanda AI, con biforcazione netta tra segmenti: AI/HPC in forte crescita, consumer electronics e PC in recupero graduale, automotive in normalizzazione dopo il supercycle 2021–2023.
-
-**View attuale:** POSITIVO selettivo. Focus su fabless AI-exposed e attrezzature per litografia avanzata. Cautela su memory pura (DRAM/NAND) per eccesso capacità residuo.
+The semiconductor sector is in the strongest demand environment in its history, driven by AI infrastructure build-out. We distinguish between the AI supply chain (NVDA, ASML, TSMC, SK Hynix) and the broader semiconductor industry (automotive, industrial, consumer) which remains in a mid-cycle consolidation.
 
 ---
 
-## Struttura del Ciclo Attuale
+## AI Supply Chain Analysis
 
-### AI Compute (priorità massima)
-- Domanda GPU/acceleratori in crescita strutturale: training + inference workload
-- Collo di bottiglia spostato da chip a packaging avanzato (CoWoS, HBM)
-- NVIDIA mantiene >80% market share acceleratori data center — rischio regolatorio export control USA-Cina
+### GPU / AI Accelerators
+NVIDIA commands approximately 88% of the AI training accelerator market and an estimated 78% of the inference accelerator market. The Blackwell architecture (H200, B200, GB200) delivered 4× throughput improvement over Hopper — preventing AMD, Intel, and custom silicon from closing the performance gap despite competitive pricing.
 
-### Attrezzature per Litografia (EDA + equipment)
-- ASML monopolio de facto su EUV: backlog superiore a 3 anni
-- Nuova generazione High-NA EUV: unico path verso nodi sub-2nm
-- Geopolitica: restrizioni export verso Cina strutturali, non transitorie
+Wait times for GB200 NVL72 systems: 52–60 weeks as of Q1 2026. This demand backlog provides extraordinary revenue visibility.
 
-### Foundry (produzione a contratto)
-- TSMC: nodo 3nm in piena produzione, 2nm in ramp 2026
-- Intel Foundry in ristrutturazione: execution risk elevato nel breve
-- Samsung: gap tecnologico vs TSMC persistente
+AMD MI300X is gaining traction in inference (lower power per token for certain model architectures), but CUDA ecosystem lock-in prevents significant training share erosion.
 
-### Memory (cautela)
-- DRAM HBM per AI: mercato piccolo ma margini eccellenti
-- DRAM commodity: pricing in recupero ma oversupply latente
-- NAND: recupero più lento, inventory correction non completamente digerita
+### EUV Lithography — ASML's Monopoly
+ASML is the only company in the world capable of manufacturing EUV systems. This is not a temporary competitive advantage — it reflects 30 years of sustained R&D investment, proprietary light source technology (Cymer, acquired 2013), and a supply chain of approximately 800 specialised suppliers that cannot be replicated in less than a decade.
+
+High-NA EUV (EXE:5000, ASP ~€360M) is the only path to 2nm and below. TSMC, Samsung, and Intel have all committed to High-NA. The installed base build-out will drive ASML revenue toward the €44–60B 2030 target range.
+
+**China risk is manageable.** DUV export restrictions reduced China revenue from ~49% to ~12% of DUV segment. The backlog is overwhelmingly TSMC/Samsung/Intel — geographically diversified.
 
 ---
 
-## Titoli in Coverage (indicativo)
+## Key Data Points
 
-| Ticker | Sede | Sub-settore | View |
+| Company | AI Revenue Exposure | Moat | Near-term Catalyst |
 |---|---|---|---|
-| NVDA | USA | GPU/Acceleratori AI | POSITIVO — premium valuation giustificato |
-| ASML | NL | Litografia EUV | POSITIVO — monopolio strutturale |
-| AVGO | USA | Networking + custom AI chip | POSITIVO |
-| AMAT | USA | Equipment deposizione/etch | NEUTRO — esposizione Cina residua |
-| STM | IT/FR | MCU automotive + industriale | NEUTRO — ciclo auto in attesa |
+| NVDA | ~86% of Data Center | CUDA ecosystem | Blackwell Ultra (Q3 2026), Rubin preview (GTC March 2026) |
+| ASML | ~100% of EUV | Manufacturing monopoly | High-NA ramp at TSMC (Q3 2026 first customer qualification) |
 
 ---
 
-## Rischi Settoriali
+## Risks
 
-- **Geopolitica:** escalation restrizioni export USA → impatto su ricavi Cina per NVDA, AMAT
-- **Concentrazione cliente:** top 3 hyperscaler = 40%+ capex semiconduttori AI
-- **Ciclo inventory:** normalizzazione 2024–2025 completata ma fragile in consumer
-- **Sostituzione custom silicon:** MSFT, GOOGL, AMZN sviluppano chip proprietari → pressione su merchant silicon nel lungo periodo
+**Cyclical digestion (bear case, 25% probability):** Hyperscalers collectively pause orders for 2–3 quarters in H2 2026 to absorb installed Hopper capacity. Historical precedent: 2022–23 data centre server digestion. Would create -20% to -30% quarterly revenue decline for NVDA from peak.
 
----
+**Export control escalation:** Further US restrictions on A-series GPUs (currently restricted to China) or Dutch government pressure on ASML to restrict DUV servicing would be materially negative.
 
-## Metriche Chiave da Monitorare
-
-- Book-to-bill ratio: > 1.0 = domanda superiore a offerta (segnale positivo)
-- Gross margin trend: proxy per pricing power e mix prodotto
-- Capex guidance foundry: indicatore leading del ciclo
-- Export license approvals: monitorare trimestralmente per player con >15% ricavi Cina
+**Custom silicon displacement (3-year view):** Google TPU v5, Amazon Trainium 2, and Microsoft Maia are all production-grade. We model them taking 10–12 points of internal hyperscaler workload share by FY2028. This is manageable; net GPU demand still grows due to overall AI workload expansion.

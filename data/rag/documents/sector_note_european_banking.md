@@ -1,68 +1,47 @@
-# Nota Settoriale: Banking Europeo
-**Data:** Aprile 2026 | **Analista:** Research Desk EMEA Financials | **Classificazione:** Uso interno
+# Sector Note: European Banking
+**Doc-type:** Sector Note | **Date:** April 2026 | **Classification:** Internal Use Only
+**Analyst:** Research Desk EMEA Financials
 
 ---
 
-## Sintesi del Quadro
+## Sector View: NEUTRAL-POSITIVE — selectivity required in rate transition
 
-Le banche europee hanno attraversato una fase di re-rating significativa nel biennio 2024–2025, beneficiando del rialzo dei tassi BCE. Con il ciclo di normalizzazione monetaria in corso, il focus si sposta sulla sostenibilità dei margini di interesse netto (NIM) e sulla qualità del credito in un contesto macro ancora incerto.
-
-**View attuale:** NEUTRO-POSITIVO. Valutazioni ancora attraenti su P/B ma visibilità ridotta su NIM 2027+. Selettività geografica essenziale.
+European banks entered 2026 with record capital levels, structurally improved cost bases, and unprecedented capital return programmes. The ECB easing cycle (deposit rate now 2.25%, down from 4.0% peak) creates NII headwinds but also conditions for consolidation and fee growth.
 
 ---
 
-## Driver e Anti-Driver
+## Rate Environment Impact
 
-### Driver positivi
-- **Capitalizzazione robusta:** CET1 medio settore > 14% → spazio per buyback e dividendi
-- **Diversificazione ricavi:** fee income e commissioni in crescita come buffer al NIM
-- **Consolidamento:** M&A cross-border europeo in accelerazione (es. UniCredit / Commerzbank)
-- **Digitalizzazione:** riduzione cost base strutturale nelle banche che hanno completato trasformazione
+The ECB has delivered 175bps of cuts since June 2025. Our NII sensitivity analysis across coverage:
 
-### Driver negativi / rischi
-- **Compressione NIM:** i tagli BCE eroderanno progressivamente il vantaggio tassi
-- **Asset quality:** esposizione PMI e real estate commerciale sotto pressione
-- **Regulatory burden:** Basilea IV implementazione completa 2025–2026 → RWA inflation
-- **Concorrenza fintech:** erosione margini su pagamenti e prestiti al consumo
-
----
-
-## Geografie Preferite
-
-| Paese | View | Motivazione |
-|---|---|---|
-| Italia | POSITIVO | Banche ben capitalizzate, valutazioni basse, M&A catalyst |
-| Spagna | POSITIVO | Esposizione LatAm come growth driver, CET1 solido |
-| Germania | NEUTRO | Restructuring in corso, esposizione industria automobilistica |
-| Francia | NEUTRO | BNP/SocGen: revenue mix difensivo ma crescita lenta |
-| Paesi Bassi | NEUTRO | ING: diversificato ma NIM sensitivity elevata |
-
----
-
-## Titoli in Coverage (indicativo)
-
-| Ticker | Sede | View | Note |
+| Bank | NII Sensitivity per -25bps | Hedge ratio | Net impact |
 |---|---|---|---|
-| UCG.MI | IT | POSITIVO | M&A optionality + buyback aggressivo |
-| ISP.MI | IT | POSITIVO | Fee income forte, dividendo sostenibile |
-| BBVA | ES | POSITIVO | Crescita LatAm + acquisizione Sabadell |
-| BNP.PA | FR | NEUTRO | Scala ma crescita lenta |
-| DBK.DE | DE | NEUTRO | Ristrutturazione non completata |
+| UCG.MI | -€350M annualised | ~55% hedged | -€158M net |
+| ISP.MI | -€420M annualised | ~60% hedged | -€168M net |
+| SAN (Santander) | -€280M annualised | ~45% hedged | -€154M net |
+
+Deposit pass-through has been slower than expected — retail deposits repriced to only 42% of the rate increase on the way up, creating an asymmetric effect on the way down. Banks with strong retail franchises (UCG in Germany/CEE, ISP in Italy) benefit from sticky low-cost deposits.
 
 ---
 
-## Metriche Chiave da Monitorare
+## UniCredit (UCG.MI) — Preferred Pick
 
-- **NIM (Net Interest Margin):** soglia di attenzione < 1.8% per banche retail-heavy
-- **CET1 ratio:** > 13% per classificare come ben capitalizzata
-- **Cost-to-income ratio:** target < 50% per le best-in-class
-- **NPL ratio:** < 3% per mercati core, tolleranza fino a 5% per mercati periferici
-- **RoTE (Return on Tangible Equity):** > 12% per giustificare premium su P/B
+UniCredit is our preferred pick in European banking. Key differentiators:
+
+**Capital efficiency:** CET1 of 16.2% (630bps above minimum) is the highest in the sector. Management has committed to returning 100% of earnings above a 13% CET1 floor — implying €9.0B+ distributions in FY2026.
+
+**Geographic diversification:** CEE (Poland, Romania, Czech Republic, Hungary) contributes 28% of group NII at structurally higher margins and faster growth than Western Europe. GDP growth in CEE is 3–4% vs 1.4% in the Eurozone.
+
+**Commerzbank optionality:** UniCredit holds >30% economic interest in Commerzbank. A successful acquisition would create Europe's largest cross-border corporate and investment bank, with cost synergies estimated at €1.5–2.0B per year by 2028. Regulatory approval expected Q2 2026.
+
+**Valuation:** UCG trades at 1.2× TBV with 20.1% RoTE. The RoTE/CoE spread of approximately 800bps (assuming ~12% CoE) justifies a premium to book.
 
 ---
 
-## Note su Regulatory Framework
+## Key Risks to European Banking
 
-- **Basilea IV:** impatto RWA stimato +8–15% per banche con modelli interni avanzati
-- **DORA (Digital Operational Resilience Act):** compliance entro gennaio 2025 — costi IT one-off
-- **CSRD:** rendicontazione sostenibilità obbligatoria → costi di compliance ma anche accesso a green finance
+**Re-rating on NII compression:** If ECB cuts faster than expected (market pricing implies 2 more 25bps cuts in 2026), banks could face multiple compression as NII headwinds overwhelm fee growth. Sensitivity: each additional 25bps cut beyond base case reduces sector EPS approximately 3%.
+
+**Credit cycle:** EU NPE ratios are at historical lows (ECB aggregate 2.1%). Any deterioration in commercial real estate (particularly German CRE offices, where Commerzbank has €8.4B exposure) would impact credit provisions.
+
+**Commerzbank execution risk:** A hostile takeover or prolonged regulatory process could distract UCG management and delay capital return to shareholders.

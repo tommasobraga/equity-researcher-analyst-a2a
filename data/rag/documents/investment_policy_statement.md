@@ -1,86 +1,72 @@
-# Investment Policy Statement — Equity Research Division
-**Versione:** 3.2 | **Data revisione:** Marzo 2026 | **Classificazione:** Uso interno
+# Investment Policy Statement
+**Doc-type:** Internal Policy | **Version:** 3.2 | **Effective Date:** January 1, 2026
+**Classification:** Internal Use Only | **Owner:** Chief Investment Officer
 
 ---
 
-## 1. Universo Investibile
+## 1. Investment Mandate
 
-### Mercati ammessi
-- **USA:** NYSE, NASDAQ, NYSE American
-- **Europa continentale:** Euronext (Paris, Amsterdam, Brussels, Milan), Xetra (Frankfurt), Borsa Italiana
-- **Esclusi esplicitamente:** London Stock Exchange (LSE), mercati emergenti, OTC/Pink Sheets
+This Investment Policy Statement (IPS) governs all equity research and portfolio management activities conducted by this system. The mandate is long-only equity, long-term capital appreciation, with a secondary objective of risk-adjusted return optimisation.
 
-### Capitalizzazione minima
-- Large cap: > 10 miliardi USD/EUR (priorità massima)
-- Mid cap: 2–10 miliardi USD/EUR (ammesso con motivazione)
-- Small cap: < 2 miliardi — escluso per illiquidità strutturale
+**Benchmark:** Custom composite — 60% MSCI World / 20% MSCI Europe / 20% MSCI USA.
+
+**Base currency:** USD. EUR-denominated positions are hedged above 15% of portfolio NAV.
 
 ---
 
-## 2. Settori Ammessi e Priorità
+## 2. Investment Universe
 
-### Priorità ALTA
-- Tecnologia: software enterprise, cloud, cybersecurity, AI infrastructure
-- Intelligenza Artificiale: modelli fondazionali, MLOps, AI applicata a verticali
-- Semiconduttori: chip design (fabless), EDA, materiali avanzati
-- Servizi finanziari: banking diversificato, fintech, asset management regolamentato
+**Eligible:** US-listed equities (NYSE, NASDAQ), EU-listed equities (Euronext Paris/Amsterdam, Xetra, Borsa Italiana, Nasdaq Stockholm). ADRs of non-US/non-EU companies are eligible if the underlying is in a FATF-compliant jurisdiction.
 
-### Priorità MEDIA
-- Healthcare technology (solo devicee e diagnostica digitale)
-- Industriali tecnologici (automazione, robotica avanzata)
+**Excluded:**
+- UK-listed equities (LSE, AIM) — excluded pending post-Brexit regulatory equivalence review
+- Cryptocurrencies, digital assets, tokenised securities, DeFi protocols
+- Companies with primary revenue exposure to: energy extraction, utilities, REITs, airlines, consumer staples, tobacco, weapons manufacturing
+- Any company subject to OFAC SDN sanctions or EU restrictive measures
 
-### ESCLUSI — nessuna deroga
-- Energia (oil & gas, rinnovabili, utilities)
-- Real estate e REIT
-- Consumer staples e beni di consumo discrezionali non-tech
-- Trasporti e compagnie aeree
-- Crypto, DeFi, Web3, asset digitali non regolamentati
-- Difesa e armamenti
-- Tabacco e gambling
+**Priority sectors:** Technology, AI Infrastructure, Software (SaaS/enterprise), Semiconductors, Banking & Financial Services (EU focus)
 
 ---
 
-## 3. Criteri di Selezione
+## 3. Position Sizing and Concentration Limits
 
-Un titolo è eleggibile se soddisfa **tutti** i seguenti requisiti:
-1. Presente nell'universo geografico e settoriale ammesso
-2. Liquidità media giornaliera > 5M USD/EUR (ultimi 90 giorni)
-3. Dati fondamentali verificabili (P/E, EPS, 52w range) da fonte certificata
-4. Nessuna procedura concorsuale in corso o notizie di delisting imminente
-5. Consensus analisti disponibile (minimo 3 coperture attive)
-
----
-
-## 4. Limiti di Portafoglio
-
-| Parametro | Limite |
+| Rule | Limit |
 |---|---|
-| Peso massimo singola posizione | 20% del portafoglio |
-| Peso massimo singolo settore | 40% del portafoglio |
-| Peso massimo singolo paese | 60% del portafoglio |
-| Numero massimo posizioni | 20 |
-| Cash minimo | 5% |
-| Cash massimo | 30% |
-
-### Sizing per nuovo ingresso
-- Dimensionamento standard: 10% della liquidità disponibile
-- Dimensionamento ridotto (alta volatilità): 5% della liquidità disponibile
-- Mai superare il cap del 20% per singola posizione inclusa la posizione esistente
+| Maximum single position | 8% of portfolio NAV |
+| Maximum sector concentration | 35% of portfolio NAV |
+| Maximum single country (non-US) | 25% of portfolio NAV |
+| Minimum number of holdings | 8 |
+| Maximum number of holdings | 25 |
+| Minimum position size | 1% of portfolio NAV |
 
 ---
 
-## 5. Regole di Uscita
+## 4. Risk Constraints
 
-- **SELL automatico:** qualità del titolo degradata a "bassa" per due periodi consecutivi
-- **SELL su guardrail dati:** dati fondamentali assenti o non verificabili
-- **SELL discrezionale:** score composito < 25/50 con deterioramento trend
-- **HOLD:** score 25–34, nessun trigger di uscita attivo
-- **BUY incrementale:** score ≥ 35 con qualità alta o media, spazio di portafoglio disponibile
+**Volatility:** Portfolio annualised volatility target ≤ 18%. Positions with trailing 90-day volatility > 50% require CIO sign-off and are capped at 3% NAV.
+
+**Drawdown:** Any individual position declining > 25% from entry triggers a mandatory review. Positions declining > 40% are liquidated unless an explicit hold rationale is documented.
+
+**Liquidity:** Minimum 20-day ADV (average daily volume) of $5M for US positions, €2M for EU positions.
 
 ---
 
-## 6. Gestione del Rischio
+## 5. ESG and Exclusion Screening
 
-- Stop-loss implicito: -15% dalla data di acquisto (review obbligatoria, non automatica)
-- Scenario bear deve essere compatibile con perdita massima portafoglio del 20%
-- Ogni posizione deve avere un trigger di falsificazione della tesi esplicitato nel report
+All investments are screened against the ESG Exclusion Policy. Additional negative screens:
+- Revenue > 5% from coal mining or coal-fired power generation
+- Revenue > 10% from fossil fuel extraction
+- Involvement in cluster munitions, anti-personnel mines, or biological weapons (zero tolerance)
+
+ESG scoring is provided by the Fundamental Analyst agent based on available disclosed data. ESG is a secondary factor; it does not override primary financial analysis.
+
+---
+
+## 6. Report and Recommendation Standards
+
+All investment recommendations must include:
+- Quantitative scoring across 5 dimensions (growth, profitability, valuation, momentum, risk) with max 10 points each (max total: 50)
+- At least one verifiable news citation per affirmation
+- Explicit falsification trigger: what specific observable event would invalidate the thesis
+- Explicit investment horizon
+- At least one bear case scenario with estimated probability
