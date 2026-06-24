@@ -154,6 +154,7 @@ graph TB
     classDef orc     fill:#dcfce7,stroke:#15803d,color:#14532d
     classDef pending fill:#fee2e2,stroke:#dc2626,color:#7f1d1d
     classDef gate    fill:#fde68a,stroke:#d97706,color:#78350f
+    classDef tool    fill:#f1f5f9,stroke:#64748b,color:#334155
 
     subgraph EXTERNAL ["Esterni"]
         LLM_P["LLM Provider<br/>bedrock · vertex · azure · local"]:::ext
@@ -201,10 +202,15 @@ graph TB
     subgraph STORAGE ["Storage"]
         P_FILE[("portfolio.db")]:::storage
         A_FILE[("audit_*.jsonl")]:::storage
+        RAW_FILE[("output/raw_*.json")]:::storage
         M_FILE[("memory.db")]:::storage
         D_FILE[("demo/response.json")]:::storage
         R_FILE[("data/rag/documents/")]:::storage
         C_FILE[("checkpoints.db")]:::storage
+    end
+
+    subgraph OFFLINE ["Offline Tools (analysis/)"]
+        HARNESS["harness_analyzer.py<br/>offline · scheduled<br/><i>WeaknessReport JSON</i>"]:::tool
     end
 
     GRAPH -->|"A2A tasks/send"| DC & NS
@@ -242,7 +248,20 @@ graph TB
     GRAPH --> RAG_RET
     RAG_RET --> R_FILE
     GRAPH --> C_FILE
+    GRAPH --> RAW_FILE
+
+    HARNESS -->|reads| A_FILE
+    HARNESS -->|reads| RAW_FILE
+    HARNESS --> LLC
+    HARNESS --> VALIDATORS
+    HARNESS --> MODELS
 ```
+
+### Offline Tools
+
+`analysis/harness_analyzer.py` — LLM-powered monitoring tool that runs **outside** the pipeline, offline and on demand (or as a scheduled job). It reads `output/raw_*.json` (full pipeline state per run) and `output/audit_*.jsonl` (per-agent execution events), correlates them by run UUID, and aggregates validator violations, judge issues, agent failures and degraded flags into a `TracesSummary`. The summary is sent to `claude-sonnet-4-6` which returns a structured `WeaknessReport`: one `WeaknessPattern` per systematic finding, each with `hypothesis`, `suggested_fix`, `confidence` and `target` (`system_prompt_rule | few_shot_example | tool_config | retry_logic`).
+
+Design constraint: **no runtime self-modification**. Output is a human-readable diagnosis; engineers apply fixes through normal change management. In `DEMO_MODE=true` the LLM call is skipped automatically. Use `--no-llm` for stats-only output without any LLM provider requirement.
 
 ---
 
