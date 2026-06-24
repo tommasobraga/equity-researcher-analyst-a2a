@@ -456,8 +456,12 @@ def main() -> None:
     output_json = report.model_dump_json(indent=2)
 
     if args.output:
-        Path(args.output).write_text(output_json, encoding="utf-8")
-        print(f"WeaknessReport written to {args.output}", file=sys.stderr)
+        out_path = Path(args.output)
+        if not out_path.is_absolute():
+            out_path = _OUTPUT_DIR / out_path
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        out_path.write_text(output_json, encoding="utf-8")
+        print(f"WeaknessReport written to {out_path}", file=sys.stderr)
     else:
         print(output_json)
 
