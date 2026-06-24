@@ -58,6 +58,11 @@ uv run pytest tests/test_validators.py tests/test_gates.py tests/test_pipeline_m
 
 # Run smoke tests (requires all agents running in DEMO_MODE)
 uv run pytest tests/test_smoke.py -q
+
+# Harness Analyzer — offline LLM-powered analysis of execution traces (no agents required)
+uv run python analysis/harness_analyzer.py --no-llm          # stats only, no LLM call
+uv run python analysis/harness_analyzer.py --last-n 20       # full WeaknessReport (requires LLM provider)
+uv run python analysis/harness_analyzer.py --output report.json
 ```
 
 ### Test suite (171 unit tests + 20 smoke tests)
@@ -163,6 +168,16 @@ All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, Ri
 - `orchestrator/main.py` — `run_pipeline(tickers, mode, interactive, prompt)`: LangGraph entry point. First node is `node_task_decomposer` (no-op if `prompt` is None). Compiles the graph with `_build_graph_builder()` on every call (to allow correct checkpointing). `PipelineState` TypedDict fields: `run_id`, `mode`, `tickers`, `fundamentals`, `news`, `themes`, `candidates`, `risk_assessment`, `report`, `executive_summary`, `qa_verdict`, `degraded`, `portfolio_state`, `portfolio_result`, `rag_context`, `judgment`, `ticker_history`, `previous_runs`, `user_prompt`, `task_decomposition`.
 - `orchestrator/api.py` — FastAPI on port 8000. `GET /` (streaming demo UI), `POST /research` (sync, returns full result), `POST /research/stream` (SSE streaming, emits `pipeline_started | health_check | node_started | node_completed | guardrail | pipeline_completed` events), `GET /portfolio`, `GET /health`, `GET /report/{filename}`. `stream_pipeline()` in `main.py` wraps `graph.astream(stream_mode="debug")`.
 - `static/index.html` — live streaming Web UI: pipeline diagram with gate nodes, event log, guardrail panel (DEGRADED/QUALITY/SECURITY), grounding score bar, Portfolio & Trades panel (trade table with AUTO approval badges, cash summary, review text), memory.db cylinder below MemoryWriter (shows loaded state after FA completes: "Nt · Mr", transitions to "✓ updated this run" after MemoryWriter; dashed label "↑ read by FundamentalAnalyst on next run" closes the visual cycle), Memory Context metric in Grounding panel (purple on warm runs). All UI text in English; report content remains in Italian.
+
+### Harness Analyzer
+
+`analysis/harness_analyzer.py` — offline LLM-powered monitoring tool. Reads `output/raw_*.json` and `output/audit_*.jsonl`, aggregates validator violations, judge issues, agent failures and degraded flags into a `TracesSummary`, then calls Claude (`claude-sonnet-4-6`) to produce a structured `WeaknessReport` (per-pattern: `hypothesis`, `suggested_fix`, `confidence`, `target`).
+
+Design intent: enterprise-safe — no runtime self-modification. Intended as a **scheduled analysis job** run after collecting live traces, not as an online loop. Output is a human-readable diagnosis that engineers translate into prompt changes via normal change management.
+
+- `--no-llm` prints aggregated stats only (works without LLM provider configured)
+- In `DEMO_MODE=true` the LLM call is automatically skipped
+- Data sources: `output/raw_<uuid>.json` (mode, degraded, judgment, report) correlated with `output/audit_<date>.jsonl` (per-agent status, duration) via run UUID
 
 ### Domain constraints (hardcoded in agent prompts)
 
