@@ -130,14 +130,14 @@ Every agent follows the same pattern:
 
 ### Models in use
 
-| Agent | Framework | Model | Port |
-|---|---|---|---|
-| DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8001 |
-| NewsSentiment | Anthropic SDK (single-shot) | `claude-haiku-4-5-20251001` | 8002 |
-| FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8003 |
-| RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8004 |
-| ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report + QA) | 8009 |
-| PortfolioManager | Anthropic SDK direct | `claude-sonnet-4-6` | 8010 |
+| Agent | Framework | Model | Port | max_tokens |
+|---|---|---|---|---|
+| DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8001 | 1024 |
+| NewsSentiment | Anthropic SDK (single-shot) | `claude-haiku-4-5-20251001` | 8002 | 2048 |
+| FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8003 | 2048 |
+| RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8004 | 2048 |
+| ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report + QA) | 8009 | 8000 + 2048 |
+| PortfolioManager | Anthropic SDK direct | `claude-sonnet-4-6` | 8010 | 2048 |
 
 ### Shared tools
 
