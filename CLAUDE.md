@@ -65,7 +65,7 @@ uv run python analysis/harness_analyzer.py --last-n 20       # full WeaknessRepo
 uv run python analysis/harness_analyzer.py --output report.json
 ```
 
-### Test suite (180 unit tests + 20 smoke tests)
+### Test suite (182 unit tests + 20 smoke tests)
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -74,7 +74,7 @@ uv run python analysis/harness_analyzer.py --output report.json
 | `tests/test_validators.py` | 51 | Domain validators + `validate_tickers()` |
 | `tests/test_prompt_injection.py` | 36 | Prompt injection resistance: tutti i gap del red team giugno 2026 chiusi. Syntactic + semantic + base64 + split injection + Cyrillic homoglyph. `TestKnownGapsNotBlocked` vuota. |
 | `tests/test_adversarial.py` | 31 | Adversarial tickers (SQL injection, homoglyph, path traversal), report content bypass attempts, defense-in-depth chain. Gap alta/media priorità chiusi: Cyrillic homoglyph, crypto euphemisms, LSE variants |
-| `tests/test_caching.py` | 9 | Prompt caching structural tests — mock-based, no LLM required. Verifies `cache_control` presence in `react_loop` (system + initial message, every turn), `run_judge` (system + structured user content), `_call_claude` in ReportWriter. |
+| `tests/test_caching.py` | 11 | Prompt caching + session management structural tests — mock-based, no LLM required. Verifies `cache_control` in `react_loop` (system + initial message, every turn), `run_judge`, `_call_claude` in ReportWriter; tool result truncation at `max_tool_result_chars`. |
 | `tests/test_smoke.py` | 20 | Live HTTP smoke tests on 5 agents in DEMO_MODE |
 
 ## Architecture
@@ -153,7 +153,7 @@ All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, Ri
 ### Shared utilities
 
 - `shared/llm_client.py` — `get_llm_client()`: singleton factory for the LLM client; reads `LLM_PROVIDER` (local|bedrock|vertex|azure)
-- `shared/react.py` — `react_loop()`: native Anthropic SDK ReAct loop, used by all agents with tool use. System prompt and initial user message are wrapped with `cache_control: {"type": "ephemeral"}` — on turns 2–N of the loop only the tool results (delta) are billed at full token price. Logs `cache_creation`/`cache_read` token counts at DEBUG level per turn.
+- `shared/react.py` — `react_loop()`: native Anthropic SDK ReAct loop, used by all agents with tool use. System prompt and initial user message are wrapped with `cache_control: {"type": "ephemeral"}` — on turns 2–N of the loop only the tool results (delta) are billed at full token price. Logs `cache_creation`/`cache_read` token counts at DEBUG level per turn. `max_tool_result_chars=8000` caps individual tool result size before it enters message history, preventing large payloads from inflating the delta on every subsequent turn. Logs `react.context` (history_chars, estimated tokens) at DEBUG per turn for budget visibility.
 - `shared/audit.py` — `write_audit_event()` / `make_audit_event()`: append-only JSONL audit trail
 - `shared/demo.py` — `is_demo_mode()` / `load_demo_response()`: demo mode without LLM calls
 - `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: inter-agent authentication

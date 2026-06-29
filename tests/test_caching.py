@@ -257,3 +257,88 @@ class TestReportWriterCaching:
         assert system_arg[0]["type"] == "text"
         assert system_arg[0]["text"] == "my system prompt"
         assert system_arg[0]["cache_control"] == {"type": "ephemeral"}
+
+
+# ------------------------------------------------------------------ #
+# shared/react.py — session management (tool result size cap)         #
+# ------------------------------------------------------------------ #
+
+class TestReactLoopSessionManagement:
+
+    def _tool_response(self, tool_name: str = "my_tool", tool_id: str = "tid_1") -> MagicMock:
+        resp = MagicMock()
+        resp.stop_reason = "tool_use"
+        block = MagicMock()
+        block.type = "tool_use"
+        block.name = tool_name
+        block.id = tool_id
+        block.input = {}
+        resp.content = [block]
+        resp.usage.input_tokens = 200
+        resp.usage.output_tokens = 10
+        resp.usage.cache_creation_input_tokens = 100
+        resp.usage.cache_read_input_tokens = 0
+        return resp
+
+    async def test_large_tool_result_is_truncated(self):
+        """Tool results exceeding max_tool_result_chars must be capped."""
+        from shared.react import react_loop
+
+        client = MagicMock()
+        client.messages.create.side_effect = [
+            self._tool_response(),
+            _end_turn_response("done"),
+        ]
+
+        large_output = "x" * 20_000
+
+        async def big_tool(_: dict) -> str:
+            return large_output
+
+        cap = 500
+        await react_loop(
+            client=client,
+            system="s",
+            user_prompt="p",
+            tools=[{"name": "my_tool", "description": "", "input_schema": {"type": "object", "properties": {}}}],
+            executors={"my_tool": big_tool},
+            model="claude-sonnet-4-6",
+            max_tool_result_chars=cap,
+        )
+
+        second_call_messages = client.messages.create.call_args_list[1].kwargs["messages"]
+        tool_result_msg = second_call_messages[-1]
+        tool_result_content = tool_result_msg["content"][0]["content"]
+        assert len(tool_result_content) <= cap + len("\n[truncated]")
+        assert tool_result_content.endswith("[truncated]")
+
+    async def test_small_tool_result_is_not_truncated(self):
+        """Tool results within cap must pass through unchanged."""
+        from shared.react import react_loop
+
+        client = MagicMock()
+        client.messages.create.side_effect = [
+            self._tool_response(),
+            _end_turn_response("done"),
+        ]
+
+        small_output = "ticker: AAPL, price: 195"
+
+        async def small_tool(_: dict) -> str:
+            return small_output
+
+        await react_loop(
+            client=client,
+            system="s",
+            user_prompt="p",
+            tools=[{"name": "my_tool", "description": "", "input_schema": {"type": "object", "properties": {}}}],
+            executors={"my_tool": small_tool},
+            model="claude-sonnet-4-6",
+            max_tool_result_chars=8000,
+        )
+
+        second_call_messages = client.messages.create.call_args_list[1].kwargs["messages"]
+        tool_result_msg = second_call_messages[-1]
+        tool_result_content = tool_result_msg["content"][0]["content"]
+        assert tool_result_content == small_output
+        assert "[truncated]" not in tool_result_content

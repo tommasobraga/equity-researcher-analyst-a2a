@@ -379,6 +379,21 @@ class WeaknessReport(BaseModel):
     executive_summary: str
 
 
+def _parse_weakness_report(raw: str, summary: TracesSummary) -> WeaknessReport:
+    start = raw.find("{")
+    end = raw.rfind("}") + 1
+    if start == -1 or end <= start:
+        raise ValueError(f"No JSON object in LLM response: {raw[:200]}")
+    data = json.loads(raw[start:end])
+    return WeaknessReport(
+        generated_at=datetime.now(timezone.utc).isoformat(),
+        runs_analyzed=summary.runs_analyzed,
+        live_runs=summary.live_runs,
+        patterns=[WeaknessPattern(**p) for p in data.get("patterns", [])],
+        executive_summary=data.get("executive_summary", ""),
+    )
+
+
 def analyze_with_llm(summary: TracesSummary) -> WeaknessReport:
     from shared.llm_client import get_llm_client
 
@@ -388,24 +403,11 @@ def analyze_with_llm(summary: TracesSummary) -> WeaknessReport:
     response = client.messages.create(
         model=_MODEL_ID,
         max_tokens=2048,
-        system=_SYSTEM_PROMPT,
+        system=[{"type": "text", "text": _SYSTEM_PROMPT, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user_prompt}],
     )
-    raw = response.content[0].text.strip()
+    return _parse_weakness_report(response.content[0].text.strip(), summary)
 
-    start = raw.find("{")
-    end = raw.rfind("}") + 1
-    if start == -1 or end <= start:
-        raise ValueError(f"No JSON object in LLM response: {raw[:200]}")
-    data = json.loads(raw[start:end])
-
-    return WeaknessReport(
-        generated_at=datetime.now(timezone.utc).isoformat(),
-        runs_analyzed=summary.runs_analyzed,
-        live_runs=summary.live_runs,
-        patterns=[WeaknessPattern(**p) for p in data.get("patterns", [])],
-        executive_summary=data.get("executive_summary", ""),
-    )
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────

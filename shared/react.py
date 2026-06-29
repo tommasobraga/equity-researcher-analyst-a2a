@@ -34,18 +34,21 @@ async def react_loop(
     model: str,
     max_tokens: int = 4096,
     max_iterations: int = 10,
+    max_tool_result_chars: int = 8000,
 ) -> str:
     """Run a ReAct loop using Claude's native tool_use protocol.
 
     Args:
-        client:         Anthropic SDK client instance
-        system:         System prompt
-        user_prompt:    Initial user message
-        tools:          Tool definitions in Anthropic tool_use format
-        executors:      {tool_name: async callable(input_dict) -> str}
-        model:          Claude model ID
-        max_tokens:     Max tokens per LLM call
-        max_iterations: Safety cap on Reason→Act→Observe cycles
+        client:                Anthropic SDK client instance
+        system:                System prompt
+        user_prompt:           Initial user message
+        tools:                 Tool definitions in Anthropic tool_use format
+        executors:             {tool_name: async callable(input_dict) -> str}
+        model:                 Claude model ID
+        max_tokens:            Max tokens per LLM call
+        max_iterations:        Safety cap on Reason→Act→Observe cycles
+        max_tool_result_chars: Cap on individual tool result size; prevents large
+                               payloads from inflating the delta on every subsequent turn.
 
     Returns:
         Final text response from the model after all tool calls are resolved.
@@ -72,6 +75,11 @@ async def react_loop(
         cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
         if cache_write or cache_read:
             _log.debug("react.cache model=%s turn=%d write=%d read=%d", model, turn, cache_write, cache_read)
+        history_chars = sum(
+            len(p.get("content", "") if isinstance(p.get("content"), str) else str(p.get("content", "")))
+            for p in messages
+        )
+        _log.debug("react.context model=%s turn=%d history_chars=%d (~%d tokens)", model, turn, history_chars, history_chars // 4)
 
         # REASON → final response
         if response.stop_reason == "end_turn":
@@ -97,10 +105,18 @@ async def react_loop(
                     else:
                         output = f"Unknown tool: {block.name}"
 
+                    result_text = str(output)
+                    if len(result_text) > max_tool_result_chars:
+                        _log.warning(
+                            "react.tool_result_truncated tool=%s original=%d cap=%d",
+                            block.name, len(result_text), max_tool_result_chars,
+                        )
+                        result_text = result_text[:max_tool_result_chars] + "\n[truncated]"
+
                     tool_results.append({
                         "type": "tool_result",
                         "tool_use_id": block.id,
-                        "content": str(output),
+                        "content": result_text,
                     })
 
             messages.append({"role": "user", "content": tool_results})
