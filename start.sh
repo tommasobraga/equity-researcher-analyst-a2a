@@ -106,8 +106,8 @@ done
 if $START_API; then
   api_path="$REPO_DIR/orchestrator/api.py"
   [[ -f "$api_path" ]] || die "Orchestratore non trovato: $api_path"
-  free_port 8000
-  echo "Avvio orchestrator/api.py su :8000..."
+  free_port 8080
+  echo "Avvio orchestrator/api.py su :8080..."
   uv run python "$api_path" > "$LOG_DIR/orchestrator-api.log" 2>&1 &
   api_pid=$!
   echo "$api_pid" >> "$PID_FILE"
@@ -140,7 +140,7 @@ done
 if $START_API; then
   api_ready=false
   for ((i=1; i<=HEALTH_RETRIES; i++)); do
-    if curl -sf "http://localhost:8000/health" > /dev/null 2>&1; then
+    if curl -sf "http://localhost:8080/health" > /dev/null 2>&1; then
       api_ready=true
       break
     fi
@@ -171,12 +171,12 @@ echo "PID file:  $PID_FILE"
 echo ""
 if $START_API; then
   echo "Endpoints disponibili:"
-  echo "  POST http://localhost:8000/research   (analyze | portfolio | full)"
-  echo "  GET  http://localhost:8000/portfolio"
-  echo "  GET  http://localhost:8000/health"
+  echo "  POST http://localhost:8080/research   (analyze | portfolio | full)"
+  echo "  GET  http://localhost:8080/portfolio"
+  echo "  GET  http://localhost:8080/health"
   echo ""
   echo "Esempio:"
-  echo "  curl -X POST http://localhost:8000/research \\"
+  echo "  curl -X POST http://localhost:8080/research \\"
   echo "    -H 'Content-Type: application/json' \\"
   echo "    -d '{\"tickers\":[\"AAPL\",\"MSFT\"],\"mode\":\"full\"}'"
 else
