@@ -54,7 +54,7 @@ curl http://localhost:8001/health
 curl http://localhost:8001/.well-known/agent.json
 
 # Run unit tests (no agents required)
-uv run pytest tests/test_validators.py tests/test_gates.py tests/test_pipeline_models.py tests/test_prompt_injection.py tests/test_adversarial.py -q
+uv run pytest tests/test_validators.py tests/test_gates.py tests/test_pipeline_models.py tests/test_prompt_injection.py tests/test_adversarial.py tests/test_caching.py -q
 
 # Run smoke tests (requires all agents running in DEMO_MODE)
 uv run pytest tests/test_smoke.py -q
@@ -65,7 +65,7 @@ uv run python analysis/harness_analyzer.py --last-n 20       # full WeaknessRepo
 uv run python analysis/harness_analyzer.py --output report.json
 ```
 
-### Test suite (171 unit tests + 20 smoke tests)
+### Test suite (180 unit tests + 20 smoke tests)
 
 | File | Tests | What it covers |
 |---|---|---|
@@ -74,6 +74,7 @@ uv run python analysis/harness_analyzer.py --output report.json
 | `tests/test_validators.py` | 51 | Domain validators + `validate_tickers()` |
 | `tests/test_prompt_injection.py` | 36 | Prompt injection resistance: tutti i gap del red team giugno 2026 chiusi. Syntactic + semantic + base64 + split injection + Cyrillic homoglyph. `TestKnownGapsNotBlocked` vuota. |
 | `tests/test_adversarial.py` | 31 | Adversarial tickers (SQL injection, homoglyph, path traversal), report content bypass attempts, defense-in-depth chain. Gap alta/media priorità chiusi: Cyrillic homoglyph, crypto euphemisms, LSE variants |
+| `tests/test_caching.py` | 9 | Prompt caching structural tests — mock-based, no LLM required. Verifies `cache_control` presence in `react_loop` (system + initial message, every turn), `run_judge` (system + structured user content), `_call_claude` in ReportWriter. |
 | `tests/test_smoke.py` | 20 | Live HTTP smoke tests on 5 agents in DEMO_MODE |
 
 ## Architecture
@@ -152,14 +153,14 @@ All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, Ri
 ### Shared utilities
 
 - `shared/llm_client.py` — `get_llm_client()`: singleton factory for the LLM client; reads `LLM_PROVIDER` (local|bedrock|vertex|azure)
-- `shared/react.py` — `react_loop()`: native Anthropic SDK ReAct loop, used by all agents with tool use
+- `shared/react.py` — `react_loop()`: native Anthropic SDK ReAct loop, used by all agents with tool use. System prompt and initial user message are wrapped with `cache_control: {"type": "ephemeral"}` — on turns 2–N of the loop only the tool results (delta) are billed at full token price. Logs `cache_creation`/`cache_read` token counts at DEBUG level per turn.
 - `shared/audit.py` — `write_audit_event()` / `make_audit_event()`: append-only JSONL audit trail
 - `shared/demo.py` — `is_demo_mode()` / `load_demo_response()`: demo mode without LLM calls
 - `shared/hmac_auth.py` — `HMACMiddleware` + `sign_request()`: inter-agent authentication
 - `shared/secrets.py` — `get_secret()`: provider-agnostic secret factory (local/azure/aws)
 - `shared/sanitize.py` — `sanitize_rss_item()`: RSS input sanitization against prompt injection
 - `shared/rag_retriever.py` — `retrieve_context(query_terms, top_k)`: TF-IDF retrieval on documents in `data/rag/documents/`. Parallel node in the orchestrator (fan-out alongside DataCollector and NewsSentiment). Output injected into FundamentalAnalyst prompt as `rag_context`. Stable public interface: upgrade to embedding-based (Bedrock Titan) without orchestrator changes.
-- `shared/llm_judge.py` — `run_judge()`: independent LLM grounding check. Runs after ReportWriter; receives original source material (news, fundamentals, RAG context) and returns a `JudgmentResult` (verdict: PASS/WARN/FAIL, grounding_score 0-100). FAIL triggers conservative mode in PortfolioManager. If `grounding_score < JUDGE_SCORE_THRESHOLD`, the portfolio branch is skipped (report flagged as non-publishable).
+- `shared/llm_judge.py` — `run_judge()`: independent LLM grounding check. Runs after ReportWriter; receives original source material (news, fundamentals, RAG context) and returns a `JudgmentResult` (verdict: PASS/WARN/FAIL, grounding_score 0-100). FAIL triggers conservative mode in PortfolioManager. If `grounding_score < JUDGE_SCORE_THRESHOLD`, the portfolio branch is skipped (report flagged as non-publishable). User content built by `_build_user_content()` (returns `list[dict]`): `rag_context` is the first block with `cache_control` (stable corpus prefix); report JSON is last (variable delta). `judge.completed` structlog event includes `cache_creation_tokens` and `cache_read_tokens`.
 - `shared/models.py` — Pydantic models: `Report` (full report schema with `model_validate()` enforcement in ReportWriter), `TaskDecomposition` (NL prompt decomposition output — includes `rationale: str` for extended thinking trace), `Scoring`, `Candidato`, `Correction` and related.
 - `shared/validators.py` — `validate(report)`: deterministic output constraints (no UK stocks, no crypto, no directives, citation format, score range). `validate_tickers(tickers)`: input guardrail — rejects LSE (`.L`), crypto keywords, invalid format before the pipeline starts.
 
@@ -192,7 +193,7 @@ Two-step process in `run_agent`:
 1. Generate full report with `=== SINTESI ESECUTIVA ===` and `=== JSON ===` sections
 2. Run QA pass on the same output; QA model responds with `QA: [APPROVATO|CORRETTO]`
 
-The JSON schema embedded in `_REPORT_SCHEMA` defines the canonical output structure (candidates with 5-dimension scoring summing to max 50, analyst consensus, scenarios, risks, falsification trigger).
+The JSON schema embedded in `_REPORT_SCHEMA` defines the canonical output structure (candidates with 5-dimension scoring summing to max 50, analyst consensus, scenarios, risks, falsification trigger). Both calls go through `_call_claude()` which wraps the system prompt with `cache_control: {"type": "ephemeral"}`; token usage dict includes `cache_creation` and `cache_read` fields that flow into the audit JSONL.
 
 ## Environment
 
