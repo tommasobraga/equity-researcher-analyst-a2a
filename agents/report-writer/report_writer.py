@@ -246,7 +246,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
             system=_REPORT_SYSTEM.format(today=today),
             user=user_prompt,
             model=_MODEL_REPORT,
-            max_tokens=16000,
+            max_tokens=8000,
         )
 
         sintesi = _extract_section(report_raw, "=== SINTESI ESECUTIVA ===")

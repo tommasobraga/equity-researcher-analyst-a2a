@@ -104,7 +104,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
         response = await asyncio.to_thread(
             client.messages.create,
             model=_MODEL_ID,
-            max_tokens=4096,
+            max_tokens=2048,
             system=[{"type": "text", "text": _INSTRUCTIONS, "cache_control": {"type": "ephemeral"}}],
             messages=[{"role": "user", "content": user_content}],
         )

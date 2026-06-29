@@ -104,7 +104,7 @@ OUTPUT — respond ONLY with valid JSON (no markdown):
 # Core logic                                                           #
 # ------------------------------------------------------------------ #
 
-def _call_claude(system: str, user: str, max_tokens: int = 4096) -> tuple[str, dict]:
+def _call_claude(system: str, user: str, max_tokens: int = 2048) -> tuple[str, dict]:
     response = get_llm_client().messages.create(
         model=_MODEL_ID,
         max_tokens=max_tokens,

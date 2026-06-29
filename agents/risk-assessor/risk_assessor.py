@@ -225,6 +225,7 @@ async def run_agent(task: A2ATask) -> A2ATaskResult:
             tools=_TOOLS,
             executors=_EXECUTORS,
             model=_MODEL_ID,
+            max_tokens=2048,
         )
         output = _extract_json_array(raw_text)
         try:
