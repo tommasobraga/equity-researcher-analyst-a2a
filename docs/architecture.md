@@ -24,7 +24,7 @@ flowchart TD
     MODE -->|portfolio| PL
 
     DC["DataCollector :8001<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline · soft fail → degraded</i>"]:::haiku
-    NS["NewsSentiment :8002<br/>Haiku 4.5 · ReAct<br/><i>soft gate inline</i>"]:::haiku
+    NS["NewsSentiment :8002<br/>Haiku 4.5 · single-shot<br/><i>soft gate inline</i>"]:::haiku
     RAG["RAGRetriever<br/>TF-IDF · local"]:::infra
 
     DC & NS & RAG --> FA
@@ -80,7 +80,7 @@ Altri guardrail pre-esistenti:
 
 | Tipo | Componente | Funzione |
 |---|---|---|
-| Input sanitization | `shared/sanitize.py` + `news_sentiment.py` | Strip HTML, bidi override; NFKC + Cyrillic lookalike normalisation prima dei pattern check; pattern sintattici + semantici + base64 redaction; cross-field split injection detection; separazione strutturale XML nel tool result di NewsSentiment. Tutti i gap del red team giugno 2026 chiusi. |
+| Input sanitization | `shared/sanitize.py` + `news_sentiment.py` | Strip HTML, bidi override; NFKC + Cyrillic lookalike normalisation prima dei pattern check; pattern sintattici + semantici + base64 redaction; cross-field split injection detection; separazione strutturale XML nel contenuto utente di NewsSentiment (single-shot: il raw RSS è wrappato in `<rss_feed_content>` prima di essere passato al modello). Tutti i gap del red team giugno 2026 chiusi. |
 | Behavioral constraints | Prompt di sistema agenti | Universo US/EU, settori esclusi, lingua italiana |
 | Soft gate DC/NS | `node_data_collector`, `node_news_sentiment` | Validazione payload inline, degraded graceful |
 | Hard gates FA/RA/RW | `orchestrator/gates.py` | Fail-fast o retry con feedback strutturato |
@@ -284,3 +284,4 @@ Design constraint: **no runtime self-modification**. Output is a human-readable 
 | Task Decomposition | NL prompt → `TaskDecomposition` via Sonnet + extended thinking (8k budget); `rationale` CoT iniettato in FA e ReportWriter; `horizon_weeks` passato a RiskAssessor per calibrare `fit_orizzonte`; no-op if prompt absent | Extend intent set (pending Bedrock — non verificabile in DEMO_MODE) |
 | Prompt Caching | `cache_control: {"type": "ephemeral"}` su system prompt + initial user message in `react_loop()` (delta processing: turni 2–N pagano solo i tool results); system prompt in `_call_claude()` (ReportWriter); system + rag_context block in `run_judge()`. Cache token counts loggati in `react.cache` (DEBUG) e `judge.completed` structlog. 9 test strutturali in `test_caching.py`. | Verificare `cache_read_input_tokens > 0` su run reale (non testabile in DEMO_MODE) |
 | Session Management | `max_tool_result_chars=8000` in `react_loop()`: cap su singoli tool result prima che entrino nella message history — impedisce a payload grandi di gonfiare il delta su ogni turno successivo. `react.context` log (DEBUG) per budget visibility (history_chars + stima token). 2 nuovi test strutturali in `test_caching.py` (`TestReactLoopSessionManagement`). Session memory già bounded: `read_ticker_history(limit=5)`, `read_recent_runs(limit=3)`, `MAX_NEWS_PAYLOAD`, `MAX_CANDIDATES_PAYLOAD`. | Monitorare `react.tool_result_truncated` in log per tarare il cap |
+| NewsSentiment single-shot | `news_sentiment.py` refactored da ReAct loop a single-shot `messages.create()`. `fetch_rss_news()` chiamato direttamente in Python (I/O deterministico, nessun reasoning necessario per il fetch); RSS passato come contenuto strutturato in un'unica chiamata LLM per filtering, ID-assignment e clustering tematico. Eliminati: tool definition tokens, turn intermedio assistant+tool_use, tool_result message. ~25-30% riduzione token per chiamata NS. | Stesso contratto A2A — orchestratore invariato |

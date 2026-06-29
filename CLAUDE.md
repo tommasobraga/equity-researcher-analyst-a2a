@@ -133,7 +133,7 @@ Every agent follows the same pattern:
 | Agent | Framework | Model | Port |
 |---|---|---|---|
 | DataCollector | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8001 |
-| NewsSentiment | Anthropic SDK (`shared/react.py`) | `claude-haiku-4-5-20251001` | 8002 |
+| NewsSentiment | Anthropic SDK (single-shot) | `claude-haiku-4-5-20251001` | 8002 |
 | FundamentalAnalyst | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8003 |
 | RiskAssessor | Anthropic SDK (`shared/react.py`) | `claude-sonnet-4-6` | 8004 |
 | ReportWriter | Anthropic SDK direct | `claude-sonnet-4-6` (report + QA) | 8009 |
@@ -148,7 +148,11 @@ Every agent follows the same pattern:
 
 ### Native ReAct loop
 
-All 4 agents with tool use (DataCollector, NewsSentiment, FundamentalAnalyst, RiskAssessor) implement the ReAct pattern (Reason → Act → Observe) directly with the Anthropic SDK tool_use, without intermediate frameworks. The logic lives in `shared/react.py` (`react_loop()`). Each `stop_reason="tool_use"` is the ACT, tool execution is the OBSERVE, `stop_reason="end_turn"` is the final response. ReportWriter does not use tool use — two sequential direct calls (report + QA).
+**DataCollector and FundamentalAnalyst and RiskAssessor** (3 agents) implement the ReAct pattern (Reason → Act → Observe) directly with the Anthropic SDK tool_use, without intermediate frameworks. The logic lives in `shared/react.py` (`react_loop()`). Each `stop_reason="tool_use"` is the ACT, tool execution is the OBSERVE, `stop_reason="end_turn"` is the final response.
+
+**NewsSentiment** uses a single-shot `messages.create()` call: `fetch_rss_news()` is invoked directly in Python (deterministic I/O, no LLM needed for fetching), and the RSS content is passed as structured user content to a single LLM call for filtering, ID-assignment and thematic clustering. ReAct would add overhead without any reasoning benefit — the agent always fetches once and infers once.
+
+**ReportWriter** does not use tool use — two sequential direct calls (report + QA).
 
 ### Shared utilities
 
