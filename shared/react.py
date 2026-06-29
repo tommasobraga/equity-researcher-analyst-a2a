@@ -17,9 +17,12 @@ Usage:
     )
 """
 import asyncio
+import logging
 from typing import Any, Callable
 
 import anthropic
+
+_log = logging.getLogger(__name__)
 
 
 async def react_loop(
@@ -48,17 +51,27 @@ async def react_loop(
         Final text response from the model after all tool calls are resolved.
         Returns a timeout message if max_iterations is reached.
     """
-    messages: list[dict[str, Any]] = [{"role": "user", "content": user_prompt}]
+    messages: list[dict[str, Any]] = [
+        {
+            "role": "user",
+            "content": [{"type": "text", "text": user_prompt, "cache_control": {"type": "ephemeral"}}],
+        }
+    ]
 
-    for _ in range(max_iterations):
+    for turn in range(max_iterations):
         response = await asyncio.to_thread(
             client.messages.create,
             model=model,
             max_tokens=max_tokens,
-            system=system,
+            system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
             tools=tools,
             messages=messages,
         )
+
+        cache_write = getattr(response.usage, "cache_creation_input_tokens", 0) or 0
+        cache_read = getattr(response.usage, "cache_read_input_tokens", 0) or 0
+        if cache_write or cache_read:
+            _log.debug("react.cache model=%s turn=%d write=%d read=%d", model, turn, cache_write, cache_read)
 
         # REASON → final response
         if response.stop_reason == "end_turn":

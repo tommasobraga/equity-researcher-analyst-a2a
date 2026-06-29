@@ -133,10 +133,15 @@ def _call_claude(system: str, user: str, model: str, max_tokens: int) -> tuple[s
     response = get_llm_client().messages.create(
         model=model,
         max_tokens=max_tokens,
-        system=system,
+        system=[{"type": "text", "text": system, "cache_control": {"type": "ephemeral"}}],
         messages=[{"role": "user", "content": user}],
     )
-    usage = {"input": response.usage.input_tokens, "output": response.usage.output_tokens}
+    usage = {
+        "input": response.usage.input_tokens,
+        "output": response.usage.output_tokens,
+        "cache_creation": getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+        "cache_read": getattr(response.usage, "cache_read_input_tokens", 0) or 0,
+    }
     return response.content[0].text, usage
 
 

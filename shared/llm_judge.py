@@ -78,22 +78,26 @@ class JudgmentResult:
         }
 
 
-def _build_user_prompt(
+def _build_user_content(
     executive_summary: str,
     report_dict: dict,
     news: list,
     fundamentals: list,
     rag_context: str,
-) -> str:
-    parts = []
+) -> list[dict]:
+    blocks: list[dict] = []
     if rag_context:
-        parts.append(f"INTERNAL KNOWLEDGE BASE (investment policy, sector notes):\n{rag_context}")
-    parts.append(f"NEWS ITEMS (source material, max 15):\n{json.dumps(news[:15], ensure_ascii=False)}")
-    parts.append(f"FUNDAMENTALS (source material):\n{json.dumps(fundamentals, ensure_ascii=False)}")
-    parts.append(f"EXECUTIVE SUMMARY:\n{executive_summary}")
-    parts.append(f"REPORT JSON:\n{json.dumps(report_dict, ensure_ascii=False, indent=2)}")
-    parts.append("Evaluate grounding and return your JSON verdict.")
-    return "\n\n---\n\n".join(parts)
+        blocks.append({
+            "type": "text",
+            "text": f"INTERNAL KNOWLEDGE BASE (investment policy, sector notes):\n{rag_context}",
+            "cache_control": {"type": "ephemeral"},
+        })
+    blocks.append({"type": "text", "text": f"NEWS ITEMS (source material, max 15):\n{json.dumps(news[:15], ensure_ascii=False)}"})
+    blocks.append({"type": "text", "text": f"FUNDAMENTALS (source material):\n{json.dumps(fundamentals, ensure_ascii=False)}"})
+    blocks.append({"type": "text", "text": f"EXECUTIVE SUMMARY:\n{executive_summary}"})
+    blocks.append({"type": "text", "text": f"REPORT JSON:\n{json.dumps(report_dict, ensure_ascii=False, indent=2)}"})
+    blocks.append({"type": "text", "text": "Evaluate grounding and return your JSON verdict."})
+    return blocks
 
 
 async def run_judge(
@@ -132,14 +136,14 @@ async def run_judge(
         )
 
     t0 = time.monotonic()
-    user_prompt = _build_user_prompt(executive_summary, report_dict, news, fundamentals, rag_context)
+    user_content = _build_user_content(executive_summary, report_dict, news, fundamentals, rag_context)
 
     try:
         response = client.messages.create(
             model=model,
             max_tokens=1024,
-            system=_JUDGE_SYSTEM,
-            messages=[{"role": "user", "content": user_prompt}],
+            system=[{"type": "text", "text": _JUDGE_SYSTEM, "cache_control": {"type": "ephemeral"}}],
+            messages=[{"role": "user", "content": user_content}],
         )
         raw = response.content[0].text.strip()
 
@@ -161,6 +165,8 @@ async def run_judge(
             grounding_score=result.grounding_score,
             n_issues=len(result.issues),
             duration_ms=int((time.monotonic() - t0) * 1000),
+            cache_creation_tokens=getattr(response.usage, "cache_creation_input_tokens", 0) or 0,
+            cache_read_tokens=getattr(response.usage, "cache_read_input_tokens", 0) or 0,
             correlation_id=correlation_id,
         )
         return result
